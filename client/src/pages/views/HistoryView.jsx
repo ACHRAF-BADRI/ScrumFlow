@@ -12,7 +12,8 @@ import SprintGoal from '../../components/sprints/SprintGoal';
 
 const DAY = 24 * 60 * 60 * 1000;
 
-const completionRate = (s) => (s.committedPoints ? Math.round((s.completedPoints / s.committedPoints) * 100) : null);
+const completionRate = (s) =>
+  s.committedPoints ? Math.round((s.completedPoints / s.committedPoints) * 100) : s.completedPoints ? 100 : 0;
 
 // Green when the team delivered what it committed to, orange when close, red otherwise
 const rateColor = (rate) => (rate === null ? '#a1a3b8' : rate >= 90 ? '#00c875' : rate >= 70 ? '#fdab3d' : '#e2445c');
@@ -26,7 +27,7 @@ function Summary({ sprints }) {
   const items = [
     { icon: Trophy, color: '#6161ff', label: t('history.sprints'), value: sprints.length },
     { icon: Gauge, color: '#fdab3d', label: t('history.avgVelocity'), value: avgVelocity, hint: t('history.avgVelocityHint') },
-    { icon: ListChecks, color: rateColor(avgRate), label: t('history.avgCompletion'), value: avgRate === null ? '—' : `${avgRate}%`, hint: t('history.avgCompletionHint') },
+    { icon: ListChecks, color: rateColor(avgRate), label: t('history.avgCompletion'), value: `${avgRate ?? 0}%`, hint: t('history.avgCompletionHint') },
   ];
 
   return (
@@ -65,7 +66,7 @@ function SprintCard({ sprint, tasks }) {
             <h3 className="text-base font-bold">{sprint.name}</h3>
             <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
               <CalendarDays className="h-3.5 w-3.5" />
-              {sprint.startDate ? `${formatDate(sprint.startDate)} → ${formatDate(sprint.endDate)}` : '—'}
+              {sprint.startDate && `${formatDate(sprint.startDate)} → ${formatDate(sprint.endDate)}`}
               {days && ` · ${t('history.days', { count: days })}`}
             </span>
           </div>
@@ -88,7 +89,7 @@ function SprintCard({ sprint, tasks }) {
           </div>
           <div>
             <p className="text-xl font-extrabold" style={{ color }}>
-              {rate === null ? '—' : `${rate}%`}
+              {`${rate}%`}
             </p>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{t('history.completion')}</p>
           </div>

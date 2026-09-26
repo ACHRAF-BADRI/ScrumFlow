@@ -2,6 +2,12 @@
 
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
+### 🔗 Live app: [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app/register)
+
+Create your free account, then start a project and invite your team.
+
+> The API runs on Render's free plan and sleeps when idle, so the first request can take up to a minute.
+
 ![Table view](docs/screenshots/table.png)
 
 | Board (dark mode) | Board (in French) |
@@ -74,7 +80,7 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │   └── src/
 │       ├── models/       User, Project, Sprint, Task
 │       ├── routes/       auth, projects (+members, stats), sprints, tasks
-│       └── seed.js       demo data
+│       └── seed.js       sample data for local development
 ├── netlify.toml
 └── render.yaml
 ```
@@ -94,7 +100,7 @@ CLIENT_URL=http://localhost:5173
 # client/.env  (copy from client/.env.example)
 VITE_API_URL=http://localhost:5000
 
-npm run seed          # optional: demo team → demo@scrumflow.app / demo1234
+npm run seed          # optional, local database only: sample team and project (never run it on production)
 npm run dev:server    # http://localhost:5000
 npm run dev:client    # http://localhost:5173 (in a second terminal)
 ```

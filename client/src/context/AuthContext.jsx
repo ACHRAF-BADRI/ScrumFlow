@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
     [applyUser]
   );
 
-  /** Persist preferences (language, theme, name) on the profile – best effort. */
+  /** Persist preferences (language, theme, name) on the profile, best effort. */
   const updateProfile = useCallback(
     async (changes) => {
       if (!tokenStore.get()) return;
@@ -67,6 +67,23 @@ export function AuthProvider({ children }) {
     []
   );
 
+  /** Save account details; unlike updateProfile, errors are thrown to the caller. */
+  const saveProfile = useCallback(async (changes) => {
+    const { data } = await api.patch('/auth/me', changes);
+    setUser(data.user);
+    return data.user;
+  }, []);
+
+  const changePassword = useCallback((currentPassword, newPassword) => api.post('/auth/me/password', { currentPassword, newPassword }), []);
+
+  /** `confirm` must be the user's exact name (checked by the API too). */
+  const deleteAccount = useCallback(async (confirm) => {
+    const { data } = await api.delete('/auth/me', { data: { confirm } });
+    tokenStore.clear();
+    setUser(null);
+    return data;
+  }, []);
+
   const value = useMemo(
     () => ({
       user,
@@ -76,8 +93,11 @@ export function AuthProvider({ children }) {
         authenticate('/auth/register', { name, email, password, language: i18n.language?.slice(0, 2) }),
       logout,
       updateProfile,
+      saveProfile,
+      changePassword,
+      deleteAccount,
     }),
-    [user, loading, authenticate, logout, updateProfile]
+    [user, loading, authenticate, logout, updateProfile, saveProfile, changePassword, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

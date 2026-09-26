@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { FolderKanban, LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react';
+import { FolderKanban, LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjects } from '../../context/ProjectsContext';
 import { Skeleton } from '../ui/Feedback';
 import LogoMark from '../ui/LogoMark';
 import Tooltip from '../ui/Tooltip';
+import { useFavorites } from '../../hooks/useFavorites';
 import NewProjectModal from '../NewProjectModal';
 import { LanguageSwitcher, ThemeToggle, UserMenu } from './Preferences';
 
@@ -26,7 +27,9 @@ export function Logo({ className, compact }) {
 
 function Sidebar({ onNavigate, onNewProject, collapsed = false }) {
   const { t } = useTranslation();
-  const { projects, loading } = useProjects();
+  const { projects: allProjects, loading } = useProjects();
+  const { isFavorite, sortFavoritesFirst } = useFavorites();
+  const projects = sortFavoritesFirst(allProjects);
 
   const linkClass = ({ isActive }) =>
     clsx(
@@ -77,6 +80,7 @@ function Sidebar({ onNavigate, onNewProject, collapsed = false }) {
                 {p.key.slice(0, 2)}
               </span>
               {!collapsed && <span className="truncate">{p.name}</span>}
+              {!collapsed && isFavorite(p._id) && <Star className="ml-auto h-3.5 w-3.5 shrink-0 text-[#fdab3d]" fill="currentColor" />}
             </NavLink>
           </Tooltip>
         ))}
@@ -146,6 +150,7 @@ export default function AppLayout() {
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
       <aside
+        data-tour="sidebar-projects"
         className={clsx(
           'sticky top-0 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-line bg-surface transition-[width] duration-200 ease-out lg:flex',
           collapsed ? 'w-[72px]' : 'w-64'
