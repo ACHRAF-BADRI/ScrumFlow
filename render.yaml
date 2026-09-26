@@ -22,3 +22,7 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
+      - key: RESEND_API_KEY
+        sync: false # Resend API key (send-only); never commit the value
+      - key: EMAIL_FROM
+        value: ScrumFlow <onboarding@resend.dev> # use your verified domain once it's set up in Resend
