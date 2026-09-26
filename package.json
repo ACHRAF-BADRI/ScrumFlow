@@ -1,42 +1,13 @@
 {
-  "name": "habit-tracker",
-  "version": "0.1.0",
+  "name": "scrumflow",
+  "version": "1.0.0",
   "private": true,
-  "dependencies": {
-    "@heroicons/react": "^1.0.6",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "habit-tracker": "file:",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-scripts": "5.0.1",
-    "recharts": "^2.13.0",
-    "tailwindcss": "^3.4.14",
-    "web-vitals": "^2.1.4"
-  },
+  "description": "Monday-style Scrum workspace: React + Express + MongoDB",
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "seed": "npm --prefix server run seed",
+    "build": "npm --prefix client run build"
   }
 }

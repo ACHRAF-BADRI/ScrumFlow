@@ -1,0 +1,190 @@
+import { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle2, ListTodo, Zap } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useTranslation } from 'react-i18next';
+import { useProject } from '../../context/ProjectContext';
+import { useTheme } from '../../context/ThemeContext';
+import { api, toastError } from '../../lib/api';
+import { STATUSES } from '../../lib/constants';
+import { formatDate } from '../../lib/format';
+import { Avatar } from '../../components/ui/Avatar';
+import { EmptyState, ProgressBar, Skeleton } from '../../components/ui/Feedback';
+import ChartTooltip from '../../components/ui/ChartTooltip';
+
+function StatCard({ icon: Icon, color, label, value, hint }) {
+  return (
+    <div className="card flex items-center gap-4 p-4">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: `${color}1f`, color }}>
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted">{label}</p>
+        <p className="text-2xl font-extrabold leading-tight">{value}</p>
+        {hint && <p className="truncate text-xs text-muted">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+function Panel({ title, children, className = '' }) {
+  return (
+    <section className={`card p-4 sm:p-5 ${className}`}>
+      <h3 className="mb-4 text-sm font-bold">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+function ChartEmpty({ text }) {
+  return (
+    <div className="flex h-60 items-center justify-center">
+      <EmptyState compact illustration="chart" title={text} className="py-0" />
+    </div>
+  );
+}
+
+export default function DashboardView() {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const { project, tasks, memberById } = useProject();
+  const [stats, setStats] = useState(null);
+
+  // Refetch when tasks change so the charts follow edits made in other views
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get(`/projects/${project._id}/stats`)
+      .then(({ data }) => !cancelled && setStats(data))
+      .catch(toastError);
+    return () => {
+      cancelled = true;
+    };
+  }, [project._id, tasks]);
+
+  if (!stats) {
+    return (
+      <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-24" />
+        ))}
+        <Skeleton className="h-80 sm:col-span-2" />
+        <Skeleton className="h-80 sm:col-span-2" />
+      </div>
+    );
+  }
+
+  const axis = { stroke: isDark ? '#9da0b9' : '#676879', fontSize: 12 };
+  const grid = isDark ? '#3c3e56' : '#e6e9ef';
+
+  const { totals } = stats;
+  const completion = totals.tasks ? Math.round((totals.done / totals.tasks) * 100) : 0;
+  const statusData = STATUSES.map((s) => ({ name: t(`status.${s.id}`), value: stats.byStatus[s.id] ?? 0, color: s.color })).filter((d) => d.value);
+  const workload = Object.entries(stats.byAssignee)
+    .map(([id, w]) => ({ id, user: id === 'unassigned' ? null : memberById[id], ...w }))
+    .sort((a, b) => b.total - a.total);
+  const burndown = stats.burndown?.points.map((p) => ({ ...p, label: formatDate(p.date) }));
+
+  return (
+    <div className="space-y-4 p-4 sm:p-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={ListTodo} color="#6161ff" label={t('dashboard.totalTasks')} value={totals.tasks} hint={t('dashboard.inBacklog', { count: totals.backlog })} />
+        <StatCard icon={CheckCircle2} color="#00c875" label={t('dashboard.completion')} value={`${completion}%`} hint={`${totals.done} / ${totals.tasks}`} />
+        <StatCard icon={Zap} color="#fdab3d" label={t('dashboard.storyPoints')} value={totals.donePoints} hint={`/ ${totals.points} ${t('common.points')}`} />
+        <StatCard icon={AlertTriangle} color="#e2445c" label={t('dashboard.overdue')} value={totals.overdue} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={`${t('dashboard.burndown')}${stats.burndown ? ` · ${stats.burndown.sprint}` : ''}`}>
+          {burndown ? (
+            <div className="h-64">
+              <ResponsiveContainer>
+                <LineChart data={burndown} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke={grid} strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} minTickGap={16} />
+                  <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: grid }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="linear" dataKey="ideal" name={t('dashboard.ideal')} stroke={axis.stroke} strokeDasharray="5 5" dot={false} strokeWidth={1.5} />
+                  <Line type="linear" dataKey="remaining" name={t('dashboard.remaining')} stroke="#6161ff" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <ChartEmpty text={t('dashboard.burndownEmpty')} />
+          )}
+        </Panel>
+
+        <Panel title={t('dashboard.velocity')}>
+          {stats.velocity.length ? (
+            <div className="h-64">
+              <ResponsiveContainer>
+                <BarChart data={stats.velocity} maxBarSize={48} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke={grid} strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="sprint" tick={axis} tickLine={false} axisLine={false} />
+                  <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ fill: isDark ? '#ffffff0d' : '#0000000a' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="committed" name={t('dashboard.committed')} fill={isDark ? '#4b4e6d' : '#c5c7d4'} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="completed" name={t('dashboard.completed')} fill="#00c875" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <ChartEmpty text={t('dashboard.velocityEmpty')} />
+          )}
+        </Panel>
+
+        <Panel title={t('dashboard.byStatus')}>
+          {statusData.length ? (
+            <div className="flex flex-col items-center gap-4 sm:flex-row">
+              <div className="h-52 w-52 shrink-0">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie data={statusData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={2} stroke="none">
+                      {statusData.map((d) => (
+                        <Cell key={d.name} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip hideLabel />} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <ul className="w-full space-y-2">
+                {statusData.map((d) => (
+                  <li key={d.name} className="flex items-center gap-2 text-sm">
+                    <span className="h-3 w-3 rounded" style={{ background: d.color }} />
+                    <span className="flex-1">{d.name}</span>
+                    <span className="font-bold">{d.value}</span>
+                    <span className="w-10 text-right text-xs text-muted">{Math.round((d.value / totals.tasks) * 100)}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <ChartEmpty text={t('dashboard.noData')} />
+          )}
+        </Panel>
+
+        <Panel title={t('dashboard.workload')}>
+          <ul className="space-y-3.5">
+            {workload.map((w) => (
+              <li key={w.id} className="flex items-center gap-3">
+                <Avatar user={w.user} size="md" />
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate font-semibold">{w.user?.name ?? t('common.unassigned')}</span>
+                    <span className="shrink-0 text-xs text-muted">
+                      {w.done}/{w.total} {t('dashboard.tasks')} · {w.points} {t('common.points')}
+                    </span>
+                  </div>
+                  <ProgressBar value={w.total ? (w.done / w.total) * 100 : 0} color={w.user?.avatarColor ?? '#a1a3b8'} />
+                </div>
+              </li>
+            ))}
+            {workload.length === 0 && <ChartEmpty text={t('dashboard.noData')} />}
+          </ul>
+        </Panel>
+      </div>
+    </div>
+  );
+}

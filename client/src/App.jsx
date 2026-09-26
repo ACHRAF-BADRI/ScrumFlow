@@ -1,0 +1,83 @@
+import { Suspense, lazy, useEffect } from 'react';
+import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from './context/AuthContext';
+import { ProjectsProvider } from './context/ProjectsContext';
+import { useTheme } from './context/ThemeContext';
+import AppLayout from './components/layout/AppLayout';
+import AppToaster from './components/ui/AppToaster';
+import { EmptyState, PageLoader } from './components/ui/Feedback';
+import AuthPage from './pages/AuthPage';
+import ProjectsPage from './pages/ProjectsPage';
+import ProjectPage from './pages/ProjectPage';
+import TableView from './pages/views/TableView';
+import BoardView from './pages/views/BoardView';
+import TeamView from './pages/views/TeamView';
+import HistoryView from './pages/views/HistoryView';
+
+// Charts are heavy: load them only when the dashboard is opened
+const DashboardView = lazy(() => import('./pages/views/DashboardView'));
+
+function RequireAuth({ children }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <PageLoader />;
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  return <ProjectsProvider>{children}</ProjectsProvider>;
+}
+
+function GuestOnly({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  return user ? <Navigate to="/" replace /> : children;
+}
+
+function NotFound() {
+  const { t } = useTranslation();
+  return (
+    <EmptyState
+      illustration="notFound"
+      title={t('errors.pageNotFound')}
+      text={t('errors.pageNotFoundText')}
+      action={
+        <Link to="/" className="btn-primary">
+          {t('errors.goHome')}
+        </Link>
+      }
+    />
+  );
+}
+
+/** Apply the theme saved on the profile when the user logs in on a new device. */
+function useProfileTheme() {
+  const { user } = useAuth();
+  const { setTheme } = useTheme();
+  useEffect(() => {
+    if (user?.theme) setTheme(user.theme);
+  }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+export default function App() {
+  useProfileTheme();
+
+  return (
+    <>
+      <Routes>
+        <Route path="/login" element={<GuestOnly><AuthPage mode="login" /></GuestOnly>} />
+        <Route path="/register" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
+        <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
+          <Route index element={<ProjectsPage />} />
+          <Route path="projects/:projectId" element={<ProjectPage />}>
+            <Route index element={<TableView />} />
+            <Route path="board" element={<BoardView />} />
+            <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><DashboardView /></Suspense>} />
+            <Route path="history" element={<HistoryView />} />
+            <Route path="team" element={<TeamView />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+      <AppToaster />
+    </>
+  );
+}
