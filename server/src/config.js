@@ -20,4 +20,7 @@ export const config = {
     .map((url) => url.trim().replace(/\/$/, ''))
     .filter(Boolean),
   isProd: process.env.NODE_ENV === 'production',
+  // Optional: emails are disabled when no Resend key is set
+  resendApiKey: process.env.RESEND_API_KEY || null,
+  emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
 };

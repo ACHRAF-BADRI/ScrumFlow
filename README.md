@@ -16,7 +16,13 @@ ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlo
 | --- | --- |
 | ![Task details](docs/screenshots/task.png) | ![Sign in](docs/screenshots/login.png) |
 
-![Mobile](docs/screenshots/mobile.png)
+### On phones
+
+The whole app is responsive. Here it is on a phone (390 px wide, dark mode):
+
+![ScrumFlow on phones: projects, table, board and task details](docs/screenshots/mobile.png)
+
+<p align="center"><sub>Projects list · Table view · Board · Task details</sub></p>
 
 ## How it works
 
@@ -103,7 +109,7 @@ npm run dev:client    # http://localhost:5173 (in a second terminal)
 
 ### 2. Render (API)
 1. Render dashboard → **New → Blueprint** → select this repo (it reads `render.yaml`).
-2. Fill in `MONGODB_URI` (Atlas string) and `CLIENT_URL` (your Netlify URL, which you can set after step 3). `JWT_SECRET` is generated for you.
+2. Fill in `MONGODB_URI` (Atlas string), `CLIENT_URL` (your Netlify URL, which you can set after step 3) and `RESEND_API_KEY` (for emails, optional). `JWT_SECRET` is generated for you, and `EMAIL_FROM` defaults to `onboarding@resend.dev` until you verify a domain in Resend.
 3. Check `https://<your-service>.onrender.com/api/health` → `{"status":"ok","db":"connected"}`.
 
 > Free Render services sleep after inactivity. The first request can take ~50s, and the app shows a "waking up the server" toast while it waits.
