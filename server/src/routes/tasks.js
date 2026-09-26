@@ -4,6 +4,7 @@ import Sprint from '../models/Sprint.js';
 import Task, { TASK_STATUSES } from '../models/Task.js';
 import { isValidId, requireProject } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
+import { notifyAssigned, notifyMentions } from '../services/notify.js';
 
 // Mounted at /api/projects/:projectId/tasks
 const router = Router({ mergeParams: true });
@@ -70,6 +71,7 @@ router.post('/', requireProject(), async (req, res) => {
     number: taskCounter,
     reporter: req.user._id,
   });
+  notifyAssigned({ actor: req.user, project: req.project, task, assigneeId: task.assignee }).catch(() => {});
   res.status(201).json({ task: await withRefs(Task.findById(task._id)) });
 });
 
@@ -100,8 +102,12 @@ router.get('/:taskId', requireProject(), async (req, res) => {
 router.patch('/:taskId', requireProject(), async (req, res) => {
   const task = await loadTask(req);
   const data = await validateRefs(req, pick(req.body, EDITABLE));
+  const previousAssignee = task.assignee ? String(task.assignee) : null;
   Object.assign(task, data);
   await task.save();
+  if ('assignee' in data && data.assignee && String(data.assignee) !== previousAssignee) {
+    notifyAssigned({ actor: req.user, project: req.project, task, assigneeId: data.assignee }).catch(() => {});
+  }
   res.json({ task: await withRefs(Task.findById(task._id)) });
 });
 
@@ -119,6 +125,7 @@ router.post('/:taskId/comments', requireProject(), async (req, res) => {
   const task = await loadTask(req);
   task.comments.push({ author: req.user._id, text });
   await task.save();
+  notifyMentions({ actor: req.user, project: req.project, task, text }).catch(() => {});
   res.status(201).json({ task: await withRefs(Task.findById(task._id)) });
 });
 

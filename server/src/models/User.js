@@ -18,6 +18,11 @@ const userSchema = new mongoose.Schema(
     tours: { type: [String], default: [] },
     // Projects starred by this user (personal, shown first)
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+    // Emails for assigned tasks and @mentions
+    emailNotifications: { type: Boolean, default: true },
+    // Forgot password: hash of the emailed token, valid for one hour
+    resetPasswordHash: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
   },
   { timestamps: true }
 );
@@ -34,6 +39,8 @@ userSchema.methods.comparePassword = function comparePassword(candidate) {
 userSchema.set('toJSON', {
   transform: (_doc, ret) => {
     delete ret.password;
+    delete ret.resetPasswordHash;
+    delete ret.resetPasswordExpires;
     delete ret.__v;
     return ret;
   },

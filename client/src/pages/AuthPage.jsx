@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, Eye, EyeOff, KanbanSquare, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { errorMessage } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
 import { STATUSES } from '../lib/constants';
 import { Logo } from '../components/layout/AppLayout';
 import { LanguageSwitcher, ThemeToggle } from '../components/layout/Preferences';
 import { Spinner } from '../components/ui/Feedback';
+import { InviteBanner, useInvitation } from './InvitePage';
 
 function Hero() {
   const { t } = useTranslation();
@@ -65,6 +66,15 @@ export default function AuthPage({ mode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const isLogin = mode === 'login';
+  // Arriving from an invitation link: show who invited you and prefill the email
+  const [params] = useSearchParams();
+  const inviteToken = params.get('invite');
+  const { invitation } = useInvitation(inviteToken);
+  const inviteQuery = inviteToken ? `?invite=${inviteToken}` : '';
+
+  useEffect(() => {
+    if (invitation) setForm((f) => ({ ...f, email: f.email || invitation.email }));
+  }, [invitation]);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -74,7 +84,13 @@ export default function AuthPage({ mode }) {
     try {
       const user = isLogin ? await login(form.email, form.password) : await register(form.name, form.email, form.password);
       toast.success(t('auth.welcome', { name: user.name.split(' ')[0] }));
-      navigate(location.state?.from ?? '/', { replace: true });
+      let target = location.state?.from ?? '/';
+      if (invitation && user.email === invitation.email) {
+        // Sign-up joins pending invitations automatically; an existing account accepts it here
+        if (isLogin) await api.post(`/invitations/${inviteToken}/accept`).catch(() => {});
+        target = `/projects/${invitation.project._id}`;
+      }
+      navigate(target, { replace: true });
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -97,6 +113,12 @@ export default function AuthPage({ mode }) {
           <h1 className="text-3xl font-extrabold tracking-tight">{isLogin ? t('auth.loginTitle') : t('auth.registerTitle')}</h1>
           <p className="mt-2 text-sm text-muted">{isLogin ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}</p>
 
+          {invitation && (
+            <div className="mt-6">
+              <InviteBanner invitation={invitation} />
+            </div>
+          )}
+
           <form onSubmit={submit} className="mt-8 space-y-4">
             {!isLogin && (
               <div>
@@ -113,9 +135,16 @@ export default function AuthPage({ mode }) {
               <input id="email" type="email" className="input h-11" value={form.email} onChange={set('email')} autoComplete="email" required />
             </div>
             <div>
-              <label className="label" htmlFor="password">
-                {t('auth.password')}
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="label" htmlFor="password">
+                  {t('auth.password')}
+                </label>
+                {isLogin && (
+                  <Link to="/forgot-password" className="mb-1.5 text-xs font-semibold text-brand hover:underline">
+                    {t('password.forgotLink')}
+                  </Link>
+                )}
+              </div>
               <div className="relative">
                 <input
                   id="password"
@@ -145,7 +174,7 @@ export default function AuthPage({ mode }) {
 
           <p className="mt-6 text-center text-sm text-muted">
             {isLogin ? t('auth.noAccount') : t('auth.hasAccount')}{' '}
-            <Link to={isLogin ? '/register' : '/login'} state={location.state} className="font-semibold text-brand hover:underline">
+            <Link to={(isLogin ? '/register' : '/login') + inviteQuery} state={location.state} className="font-semibold text-brand hover:underline">
               {isLogin ? t('auth.register') : t('auth.login')}
             </Link>
           </p>

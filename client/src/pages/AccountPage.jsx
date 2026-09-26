@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { AlertTriangle, Check, Eye, EyeOff, KeyRound, Trash2, UserRound } from 'lucide-react';
+import { AlertTriangle, Bell, Check, Eye, EyeOff, KeyRound, Trash2, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -139,6 +139,46 @@ function ProfileSection() {
           </button>
         </div>
       </form>
+    </Section>
+  );
+}
+
+function NotificationsSection() {
+  const { t } = useTranslation();
+  const { user, saveProfile } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const enabled = user.emailNotifications !== false;
+
+  const toggle = async () => {
+    setSaving(true);
+    try {
+      await saveProfile({ emailNotifications: !enabled });
+      toast.success(!enabled ? t('account.notificationsOn') : t('account.notificationsOff'));
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section icon={Bell} title={t('account.notifications')} text={t('account.notificationsText')}>
+      <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-line p-4 transition hover:bg-surface-2/50">
+        <span>
+          <span className="block text-sm font-semibold">{t('account.emailNotifications')}</span>
+          <span className="block text-xs text-muted">{t('account.emailNotificationsText')}</span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          disabled={saving}
+          onClick={toggle}
+          className={clsx('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors', enabled ? 'bg-brand' : 'bg-line')}
+        >
+          <span className={clsx('inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', enabled ? 'translate-x-[22px]' : 'translate-x-0.5')} />
+        </button>
+      </label>
     </Section>
   );
 }
@@ -297,6 +337,7 @@ export default function AccountPage() {
         <p className="text-sm text-muted">{t('account.subtitle')}</p>
       </div>
       <ProfileSection />
+      <NotificationsSection />
       <PasswordSection />
       <DeleteSection />
     </div>

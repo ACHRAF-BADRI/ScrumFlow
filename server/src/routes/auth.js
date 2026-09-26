@@ -5,6 +5,10 @@ import User from '../models/User.js';
 import Project from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
 import Task from '../models/Task.js';
+import Invitation, { hashToken, newToken } from '../models/Invitation.js';
+import { resetPasswordEmail } from '../emails/templates.js';
+import { appUrl, sendEmail } from '../utils/mailer.js';
+import { joinPendingInvitations } from '../services/invitations.js';
 import { requireAuth, signToken } from '../middleware/auth.js';
 import { badRequest, pick, unauthorized } from '../utils/httpError.js';
 
@@ -18,7 +22,9 @@ router.post('/register', authLimiter, async (req, res) => {
   if (String(password).length < 6) throw badRequest('Password must be at least 6 characters', 'errors.passwordTooShort');
 
   const user = await User.create({ name, email, password, language: language === 'fr' ? 'fr' : 'en' });
-  res.status(201).json({ token: signToken(user), user });
+  // Invited before having an account: join those projects right away
+  const joined = await joinPendingInvitations(user);
+  res.status(201).json({ token: signToken(user), user, joined });
 });
 
 router.post('/login', authLimiter, async (req, res) => {
@@ -29,6 +35,42 @@ router.post('/login', authLimiter, async (req, res) => {
   if (!user || !(await user.comparePassword(password))) {
     throw unauthorized('Invalid email or password', 'errors.invalidCredentials');
   }
+  res.json({ token: signToken(user), user });
+});
+
+const RESET_MINUTES = 60;
+
+/**
+ * Always answers 200, whether the email exists or not, so this endpoint can't
+ * be used to find out who has an account.
+ */
+router.post('/forgot-password', authLimiter, async (req, res) => {
+  const email = String(req.body?.email ?? '').toLowerCase().trim();
+  const user = email ? await User.findOne({ email }) : null;
+  if (user) {
+    const token = newToken();
+    user.resetPasswordHash = hashToken(token);
+    user.resetPasswordExpires = new Date(Date.now() + RESET_MINUTES * 60 * 1000);
+    await user.save();
+    await sendEmail(resetPasswordEmail({ to: user.email, lang: user.language, name: user.name, url: appUrl(`/reset-password/${token}`) }));
+  }
+  res.json({ ok: true });
+});
+
+// Choose a new password with the emailed token, then sign in directly
+router.post('/reset-password', authLimiter, async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!password || String(password).length < 6) throw badRequest('Password must be at least 6 characters', 'errors.passwordTooShort');
+  const user = await User.findOne({
+    resetPasswordHash: hashToken(String(token ?? '')),
+    resetPasswordExpires: { $gt: new Date() },
+  }).select('+resetPasswordHash +resetPasswordExpires');
+  if (!user) throw badRequest('This link is invalid or has expired', 'errors.resetInvalid');
+
+  user.password = password;
+  user.resetPasswordHash = undefined;
+  user.resetPasswordExpires = undefined;
+  await user.save();
   res.json({ token: signToken(user), user });
 });
 
@@ -49,7 +91,8 @@ async function assertPassword(userId, password) {
 }
 
 router.patch('/me', requireAuth, async (req, res) => {
-  const changes = pick(req.body, ['name', 'email', 'language', 'theme', 'avatarColor', 'tours', 'favorites']);
+  const changes = pick(req.body, ['name', 'email', 'language', 'theme', 'avatarColor', 'tours', 'favorites', 'emailNotifications']);
+  if (changes.emailNotifications !== undefined) changes.emailNotifications = Boolean(changes.emailNotifications);
 
   if (changes.name !== undefined) {
     changes.name = String(changes.name).trim();
@@ -123,6 +166,7 @@ router.delete('/me', requireAuth, authLimiter, async (req, res) => {
   }
   // Their open work becomes unassigned instead of pointing at a deleted account
   await Task.updateMany({ assignee: userId }, { assignee: null });
+  await Invitation.deleteMany({ invitedBy: userId, acceptedAt: null });
   await User.deleteOne({ _id: userId });
 
   res.json({ ok: true, transferred, deleted });

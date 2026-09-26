@@ -11,6 +11,8 @@ import { EmptyState, PageLoader } from './components/ui/Feedback';
 import AuthPage from './pages/AuthPage';
 import ProjectsPage from './pages/ProjectsPage';
 import AccountPage from './pages/AccountPage';
+import InvitePage from './pages/InvitePage';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordPages';
 import ProjectPage from './pages/ProjectPage';
 import TableView from './pages/views/TableView';
 import BoardView from './pages/views/BoardView';
@@ -71,6 +73,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<GuestOnly><AuthPage mode="login" /></GuestOnly>} />
         <Route path="/register" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
+        <Route path="/forgot-password" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
+        {/* Public: these links must work whether or not someone is signed in */}
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
         <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProjectsPage />} />
           <Route path="account" element={<AccountPage />} />

@@ -11,6 +11,7 @@ import { Badge, LabelChip } from '../ui/Badge';
 import { useConfirm } from '../ui/Confirm';
 import { Drawer } from '../ui/Modal';
 import { EmptyState } from '../ui/Feedback';
+import { CommentText, MentionTextarea } from './Mentions';
 import Tooltip from '../ui/Tooltip';
 import { AssigneePicker, PointsPicker, PriorityPicker, SprintPicker, StatusPicker, TypePicker } from './Pickers';
 
@@ -61,7 +62,8 @@ export function LabelsInput({ value = [], onChange }) {
 function Comments({ task }) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { addComment, deleteComment, canManage } = useProject();
+  const { addComment, deleteComment, canManage, members } = useProject();
+  const others = members.filter((m) => m._id !== user?._id);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -83,19 +85,18 @@ function Comments({ task }) {
 
   return (
     <section className="space-y-4">
-      <form onSubmit={submit} className="card overflow-hidden focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
-        <textarea
+      <form onSubmit={submit} className="card focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20">
+        <MentionTextarea
           className="block min-h-[72px] w-full resize-none bg-transparent px-3.5 py-3 text-sm outline-none placeholder:text-muted/60"
           placeholder={t('task.commentPlaceholder')}
           value={text}
           maxLength={2000}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(e);
-          }}
+          onChange={setText}
+          members={others}
+          onSubmitShortcut={submit}
         />
-        <div className="flex items-center justify-between border-t border-line bg-surface-2/50 px-3 py-2">
-          <span className="text-[11px] text-muted">Ctrl + Enter</span>
+        <div className="flex items-center justify-between rounded-b-xl border-t border-line bg-surface-2/50 px-3 py-2">
+          <span className="text-[11px] text-muted">{t('task.mentionHint')} · Ctrl + Enter</span>
           <button type="submit" className="btn-primary px-3 py-1.5" disabled={sending || !text.trim()}>
             <Send className="h-3.5 w-3.5" />
             {t('task.send')}
@@ -125,7 +126,9 @@ function Comments({ task }) {
                   </button>
                 )}
               </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm">{c.text}</p>
+              <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+                <CommentText text={c.text} members={members} />
+              </p>
             </div>
           </li>
         ))}

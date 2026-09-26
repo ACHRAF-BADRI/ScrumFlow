@@ -1,30 +1,66 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Trash2, UserPlus } from 'lucide-react';
+import { Check, Copy, LogOut, Mail, RotateCw, Trash2, UserPlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useProject } from '../../context/ProjectContext';
 import { toastError } from '../../lib/api';
+import { formatDate } from '../../lib/format';
 import { Avatar } from '../../components/ui/Avatar';
 import { RoleBadge } from '../../components/ui/Badge';
 import { useConfirm } from '../../components/ui/Confirm';
 import ProjectFields from '../../components/ProjectFields';
 import Tooltip from '../../components/ui/Tooltip';
 
-function InviteForm() {
+function InviteLink({ url, onClose }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard?.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div className="mt-3 rounded-xl border border-[#fdab3d]/40 bg-[#fdab3d]/10 p-3">
+      <div className="flex items-start gap-2">
+        <p className="flex-1 text-xs text-ink">{t('team.emailNotSent')}</p>
+        <button type="button" onClick={onClose} className="text-muted hover:text-ink" aria-label={t('common.close')}>
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input readOnly className="input h-9 flex-1 font-mono text-xs" value={url} onFocus={(e) => e.target.select()} />
+        <button type="button" onClick={copy} className="btn-secondary h-9 px-3">
+          {copied ? <Check className="h-4 w-4 text-[#00c875]" /> : <Copy className="h-4 w-4" />}
+          {copied ? t('team.copied') : t('team.copyLink')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InviteForm({ onInvited }) {
   const { t } = useTranslation();
   const { addMember } = useProject();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
   const [saving, setSaving] = useState(false);
+  const [shareUrl, setShareUrl] = useState(null);
 
   const submit = async (e) => {
     e.preventDefault();
     setSaving(true);
+    setShareUrl(null);
     try {
-      await addMember(email.trim(), role);
-      toast.success(t('team.added'));
+      const result = await addMember(email.trim(), role);
+      if (result.invited) {
+        if (result.emailSent) toast.success(t('team.invitationSent', { email: result.email }));
+        else setShareUrl(result.inviteUrl);
+        onInvited?.();
+      } else {
+        toast.success(t('team.added'));
+      }
       setEmail('');
     } catch (err) {
       toastError(err);
@@ -46,10 +82,83 @@ function InviteForm() {
           <option value="admin">{t('role.admin')}</option>
         </select>
         <button type="submit" className="btn-primary" disabled={saving || !email.trim()}>
-          {t('team.inviteButton')}
+          {saving ? t('common.saving') : t('team.inviteButton')}
         </button>
       </div>
+      {shareUrl && <InviteLink url={shareUrl} onClose={() => setShareUrl(null)} />}
     </form>
+  );
+}
+
+function PendingInvitations({ reloadKey }) {
+  const { t } = useTranslation();
+  const { listInvitations, revokeInvitation, addMember } = useProject();
+  const [invitations, setInvitations] = useState([]);
+  const [shareUrl, setShareUrl] = useState(null);
+
+  const load = useCallback(() => listInvitations().then(setInvitations).catch(() => {}), [listInvitations]);
+  useEffect(() => {
+    load();
+  }, [load, reloadKey]);
+
+  if (invitations.length === 0) return null;
+
+  const resend = async (invitation) => {
+    try {
+      const result = await addMember(invitation.email, invitation.role);
+      if (result.emailSent) toast.success(t('team.invitationSent', { email: invitation.email }));
+      else setShareUrl(result.inviteUrl);
+      load();
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  const revoke = async (invitation) => {
+    try {
+      await revokeInvitation(invitation._id);
+      setInvitations((list) => list.filter((i) => i._id !== invitation._id));
+      toast.success(t('team.invitationRevoked'));
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  return (
+    <section className="card overflow-hidden">
+      <h3 className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm font-bold sm:px-5">
+        <Mail className="h-4 w-4 text-brand" /> {t('team.pending')} <span className="text-muted">({invitations.length})</span>
+      </h3>
+      <ul className="divide-y divide-line">
+        {invitations.map((invitation) => (
+          <li key={invitation._id} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-line text-muted">
+              <Mail className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{invitation.email}</p>
+              <p className="truncate text-xs text-muted">{t('team.expires', { date: formatDate(invitation.expiresAt, { day: 'numeric', month: 'long' }) })}</p>
+            </div>
+            <RoleBadge role={invitation.role} />
+            <Tooltip label={t('team.resend')}>
+              <button type="button" className="btn-icon h-8 w-8" onClick={() => resend(invitation)}>
+                <RotateCw className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label={t('team.revoke')}>
+              <button type="button" className="btn-icon h-8 w-8 hover:text-[#e2445c]" onClick={() => revoke(invitation)}>
+                <X className="h-4 w-4" />
+              </button>
+            </Tooltip>
+          </li>
+        ))}
+      </ul>
+      {shareUrl && (
+        <div className="px-4 pb-4 sm:px-5">
+          <InviteLink url={shareUrl} onClose={() => setShareUrl(null)} />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -94,6 +203,7 @@ export default function TeamView() {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const { project, members, role, canManage, updateMemberRole, removeMember, deleteProject } = useProject();
+  const [invitesKey, setInvitesKey] = useState(0);
 
   const changeRole = async (memberId, nextRole) => {
     try {
@@ -177,7 +287,8 @@ export default function TeamView() {
             })}
           </ul>
         </section>
-        {canManage && <InviteForm />}
+        {canManage && <InviteForm onInvited={() => setInvitesKey((k) => k + 1)} />}
+        {canManage && <PendingInvitations reloadKey={invitesKey} />}
       </div>
 
       <div className="space-y-4">

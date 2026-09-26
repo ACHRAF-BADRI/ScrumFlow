@@ -223,9 +223,15 @@ export function ProjectProvider({ projectId, children }) {
 
       async addMember(email, memberRole) {
         const { data } = await guarded(() => api.post(`${base}/members`, { email, role: memberRole }));
-        setProject(data.project);
-        patchLocal(data.project);
+        if (data.project) {
+          setProject(data.project);
+          patchLocal(data.project);
+        }
+        return data; // { project } or { invited, email, emailSent, inviteUrl }
       },
+
+      listInvitations: () => api.get(`${base}/invitations`).then(({ data }) => data.invitations),
+      revokeInvitation: (invitationId) => api.delete(`${base}/invitations/${invitationId}`),
 
       async updateMemberRole(userId, memberRole) {
         const { data } = await guarded(() => api.patch(`${base}/members/${userId}`, { role: memberRole }));
