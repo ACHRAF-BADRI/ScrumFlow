@@ -24,7 +24,9 @@ app.use(
         !origin ||
         config.clientUrls.includes(origin) ||
         config.clientUrls.some((url) => url.endsWith('.netlify.app') && origin.endsWith(`--${url.replace(/^https?:\/\//, '')}`));
-      callback(allowed ? null : new Error(`Origin ${origin} not allowed by CORS`), allowed);
+      // Reject without throwing: the browser blocks the request, and the log says what to fix
+      if (!allowed) console.warn(`CORS: origin ${origin} is not in CLIENT_URL (${config.clientUrls.join(', ')})`);
+      callback(null, allowed);
     },
   })
 );

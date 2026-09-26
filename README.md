@@ -2,6 +2,12 @@
 
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
+### 🔗 Live demo: [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app/login)
+
+Sign in with the demo account **`demo@scrumflow.app`** / **`demo1234`**, or create your own account.
+
+> The API runs on Render's free plan and sleeps when idle, so the first sign-in can take up to a minute.
+
 ![Table view](docs/screenshots/table.png)
 
 | Board (dark mode) | Board (in French) |

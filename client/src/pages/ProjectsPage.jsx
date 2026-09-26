@@ -26,7 +26,7 @@ function ProjectCard({ project }) {
             <p className="text-xs text-muted">{t('projects.members', { count: members.length })}</p>
           </div>
         </div>
-        <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-sm text-muted">{project.description || '—'}</p>
+        <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-sm text-muted">{project.description}</p>
         <div className="mt-4">
           {project.activeSprint ? (
             <Badge color="#00c875" dot>

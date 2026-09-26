@@ -110,7 +110,7 @@ function Comments({ task }) {
             <Avatar user={c.author} size="md" />
             <div className="min-w-0 flex-1 rounded-xl bg-surface-2 px-3.5 py-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold">{c.author?.name ?? '—'}</span>
+                <span className="text-sm font-semibold">{c.author?.name}</span>
                 <Tooltip label={formatDateTime(c.createdAt)}>
                   <span className="text-xs text-muted">{relativeTime(c.createdAt)}</span>
                 </Tooltip>
@@ -261,7 +261,7 @@ export default function TaskDrawer({ taskId, onClose }) {
 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
           <span className="flex items-center gap-1.5">
-            {t('task.reporter')}: <Avatar user={task.reporter} size="xs" /> {task.reporter?.name ?? '—'}
+            {t('task.reporter')}: <Avatar user={task.reporter} size="xs" /> {task.reporter?.name}
           </span>
           <span>
             {t('task.createdAt')}: {formatDateTime(task.createdAt)}

@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
     [applyUser]
   );
 
-  /** Persist preferences (language, theme, name) on the profile – best effort. */
+  /** Persist preferences (language, theme, name) on the profile, best effort. */
   const updateProfile = useCallback(
     async (changes) => {
       if (!tokenStore.get()) return;

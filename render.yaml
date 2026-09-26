@@ -17,7 +17,7 @@ services:
       - key: MONGODB_URI
         sync: false # paste your MongoDB Atlas connection string
       - key: CLIENT_URL
-        sync: false # your Netlify URL, e.g. https://scrumflow.netlify.app
+        sync: false # your Netlify URL, e.g. https://<your-site-name>.netlify.app
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN

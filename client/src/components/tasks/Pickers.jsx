@@ -209,7 +209,7 @@ export function PointsPicker({ value, onChange, variant = 'field' }) {
       trigger={({ open, toggle, ref }) =>
         variant === 'cell' ? (
           <button ref={ref} type="button" onClick={toggle} className="flex h-full w-full items-center justify-center text-sm font-semibold hover:bg-surface-2">
-            {value ? value : <span className="text-muted/60">–</span>}
+            {value || null}
           </button>
         ) : (
           <FieldButton open={open} toggle={toggle} innerRef={ref}>
