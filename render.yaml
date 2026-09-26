@@ -1,0 +1,24 @@
+# Render Blueprint: deploys the Express API from /server
+# Render dashboard > New > Blueprint > pick this repository
+services:
+  - type: web
+    name: scrumflow-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: MONGODB_URI
+        sync: false # paste your MongoDB Atlas connection string
+      - key: CLIENT_URL
+        sync: false # your Netlify URL, e.g. https://scrumflow.netlify.app
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
