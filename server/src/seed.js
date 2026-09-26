@@ -1,8 +1,8 @@
 /**
- * Creates a demo team, project, sprints and tasks.
+ * Creates a sample team, project, sprints and tasks for LOCAL development.
  *   npm run seed
  * Log in with demo@scrumflow.app / demo1234 (teammates use the same password).
- * Running it again resets the demo data only.
+ * Running it again resets the sample data only. Refuses Atlas databases unless --force.
  */
 import mongoose from 'mongoose';
 import { config } from './config.js';
@@ -21,6 +21,12 @@ const TEAM = [
 ];
 
 async function seed() {
+  // Safety: sample data is for local databases, never for the production cluster
+  if (config.mongoUri.startsWith('mongodb+srv://') && !process.argv.includes('--force')) {
+    console.error('Refusing to seed a MongoDB Atlas (mongodb+srv) database: it looks like production.');
+    console.error('Use a local database, or run `node src/seed.js --force` if you really mean it.');
+    process.exit(1);
+  }
   await mongoose.connect(config.mongoUri);
 
   const emails = TEAM.map((u) => u.email);

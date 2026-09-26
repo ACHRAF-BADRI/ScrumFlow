@@ -100,7 +100,7 @@ function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, s
       <div className="border-r border-line">
         <AssigneePicker variant="cell" value={task.assignee?._id ?? null} onChange={(assignee) => update({ assignee })} />
       </div>
-      <div className="border-r border-line p-px">
+      <div className="border-r border-line p-px" data-tour="status-cell">
         <StatusPicker variant="cell" value={task.status} onChange={(status) => update({ status })} />
       </div>
       <div className="border-r border-line p-px">
@@ -159,6 +159,7 @@ const InlineAdd = forwardRef(function InlineAdd({ sprintId, color }, ref) {
   return (
     // The whole row focuses the field, not only the text
     <div
+      data-tour="add-row"
       onClick={() => inputRef.current?.focus()}
       className={clsx(
         GRID,
@@ -399,7 +400,7 @@ export default function TableView() {
     <div className="px-4 py-5 sm:px-6">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {canManage && (
-          <button type="button" className="btn-secondary" onClick={() => setDialog({ type: 'create' })}>
+          <button type="button" className="btn-secondary" onClick={() => setDialog({ type: 'create' })} data-tour="new-sprint">
             <Plus className="h-4 w-4" /> {t('sprint.new')}
           </button>
         )}

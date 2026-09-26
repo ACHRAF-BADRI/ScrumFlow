@@ -10,14 +10,15 @@ import { Avatar, AvatarStack } from '../components/ui/Avatar';
 import { EmptyState, PageLoader } from '../components/ui/Feedback';
 import { OptionList, Popover } from '../components/ui/Popover';
 import TaskDrawer from '../components/tasks/TaskDrawer';
+import { useAutoTour } from '../components/tour/TourProvider';
 import NewTaskModal from '../components/tasks/NewTaskModal';
 
 const TABS = [
   { to: '', end: true, label: 'views.table', icon: Table2 },
-  { to: 'board', label: 'views.board', icon: KanbanSquare },
+  { to: 'board', label: 'views.board', icon: KanbanSquare, tour: 'tab-board' },
   { to: 'dashboard', label: 'views.dashboard', icon: LayoutDashboard },
   { to: 'history', label: 'views.history', icon: History },
-  { to: 'team', label: 'views.team', icon: Users },
+  { to: 'team', label: 'views.team', icon: Users, tour: 'tab-team' },
 ];
 
 function Filters({ filters, setFilters }) {
@@ -73,8 +74,10 @@ function Filters({ filters, setFilters }) {
 function ProjectShell() {
   const { t } = useTranslation();
   const { project, members, loading, error, reload } = useProject();
-  const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
+  // The project tour explains the table view, so only start it there
+  useAutoTour('project', Boolean(project) && !/\/(board|dashboard|history|team)$/.test(location.pathname));
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState({ search: '', assignee: null });
   const [newTask, setNewTask] = useState(null); // null = closed, object = defaults
 
@@ -161,17 +164,18 @@ function ProjectShell() {
             <Link to="team" className="hidden sm:block" aria-label={t('team.members')}>
               <AvatarStack users={members} max={5} size="md" />
             </Link>
-            <button type="button" className="btn-primary" onClick={() => setNewTask({})}>
+            <button type="button" className="btn-primary" onClick={() => setNewTask({})} data-tour="new-task">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">{t('task.new')}</span>
             </button>
           </div>
         </div>
 
-        <nav className="scrollbar-none -mb-px mt-4 flex gap-1 overflow-x-auto">
-          {TABS.map(({ to, end, label, icon: Icon }) => (
+        <nav className="scrollbar-none -mb-px mt-4 flex gap-1 overflow-x-auto" data-tour="view-tabs">
+          {TABS.map(({ to, end, label, icon: Icon, tour }) => (
             <NavLink
               key={label}
+              data-tour={tour}
               to={to}
               end={end}
               className={({ isActive }) =>
@@ -190,7 +194,9 @@ function ProjectShell() {
 
       {showFilters && (
         <div className="px-4 pt-4 sm:px-6">
-          <Filters filters={filters} setFilters={setFilters} />
+          <div data-tour="filters" className="inline-block max-w-full">
+            <Filters filters={filters} setFilters={setFilters} />
+          </div>
         </div>
       )}
 

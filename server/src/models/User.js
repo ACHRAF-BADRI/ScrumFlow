@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema(
     },
     language: { type: String, enum: ['en', 'fr'], default: 'en' },
     theme: { type: String, enum: ['light', 'dark', 'system'], default: 'system' },
+    // Onboarding tours the user has finished or skipped (e.g. "home", "project")
+    tours: { type: [String], default: [] },
+    // Projects starred by this user (personal, shown first)
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   },
   { timestamps: true }
 );

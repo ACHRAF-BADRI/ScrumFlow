@@ -1,11 +1,13 @@
 import clsx from 'clsx';
-import { Check, Languages, LogOut, Monitor, Moon, Sun } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Check, GraduationCap, Languages, LogOut, Monitor, Moon, Sun, UserCog } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { LANGUAGES } from '../../i18n';
 import { Avatar } from '../ui/Avatar';
 import { Popover } from '../ui/Popover';
+import { useTour } from '../tour/TourProvider';
 import Tooltip from '../ui/Tooltip';
 
 export function ThemeToggle({ className }) {
@@ -18,6 +20,7 @@ export function ThemeToggle({ className }) {
       <button
         type="button"
         className={clsx('btn-icon', className)}
+        data-tour="theme"
         onClick={() => {
           setTheme(next);
           updateProfile({ theme: next });
@@ -39,7 +42,7 @@ export function LanguageSwitcher({ className }) {
     <Popover
       align="end"
       trigger={({ toggle, ref }) => (
-        <button ref={ref} type="button" onClick={toggle} className={clsx('btn-ghost px-2.5', className)} aria-label={t('nav.language')}>
+        <button ref={ref} type="button" onClick={toggle} className={clsx('btn-ghost px-2.5', className)} aria-label={t('nav.language')} data-tour="language">
           <Languages className="h-[18px] w-[18px]" />
           <span className="text-xs font-bold uppercase">{current}</span>
         </button>
@@ -77,6 +80,9 @@ export function UserMenu() {
   const { t } = useTranslation();
   const { user, logout, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { replay } = useTour();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
   if (!user) return null;
 
   return (
@@ -84,7 +90,7 @@ export function UserMenu() {
       align="end"
       width={240}
       trigger={({ toggle, ref }) => (
-        <button ref={ref} type="button" onClick={toggle} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50">
+        <button ref={ref} type="button" onClick={toggle} className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50" data-tour="user-menu">
           <Avatar user={user} size="md" />
         </button>
       )}
@@ -120,6 +126,28 @@ export function UserMenu() {
             ))}
           </div>
           <div className="my-1.5 border-t border-line" />
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              close();
+              navigate('/account');
+            }}
+          >
+            <UserCog className="h-4 w-4" />
+            {t('account.title')}
+          </button>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              close();
+              replay(pathname.startsWith('/projects/') ? 'project' : 'home');
+            }}
+          >
+            <GraduationCap className="h-4 w-4" />
+            {t('tour.replay')}
+          </button>
           <button
             type="button"
             className="menu-item text-[#e2445c]"

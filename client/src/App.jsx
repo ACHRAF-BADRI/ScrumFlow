@@ -6,9 +6,11 @@ import { ProjectsProvider } from './context/ProjectsContext';
 import { useTheme } from './context/ThemeContext';
 import AppLayout from './components/layout/AppLayout';
 import AppToaster from './components/ui/AppToaster';
+import { TourProvider } from './components/tour/TourProvider';
 import { EmptyState, PageLoader } from './components/ui/Feedback';
 import AuthPage from './pages/AuthPage';
 import ProjectsPage from './pages/ProjectsPage';
+import AccountPage from './pages/AccountPage';
 import ProjectPage from './pages/ProjectPage';
 import TableView from './pages/views/TableView';
 import BoardView from './pages/views/BoardView';
@@ -23,7 +25,11 @@ function RequireAuth({ children }) {
   const location = useLocation();
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
-  return <ProjectsProvider>{children}</ProjectsProvider>;
+  return (
+    <ProjectsProvider>
+      <TourProvider>{children}</TourProvider>
+    </ProjectsProvider>
+  );
 }
 
 function GuestOnly({ children }) {
@@ -67,6 +73,7 @@ export default function App() {
         <Route path="/register" element={<GuestOnly><AuthPage mode="register" /></GuestOnly>} />
         <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProjectsPage />} />
+          <Route path="account" element={<AccountPage />} />
           <Route path="projects/:projectId" element={<ProjectPage />}>
             <Route index element={<TableView />} />
             <Route path="board" element={<BoardView />} />

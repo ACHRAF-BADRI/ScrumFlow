@@ -15,7 +15,7 @@ export default function AppToaster() {
   return (
     <Toaster
       theme={resolved}
-      position="bottom-right"
+      position="top-center"
       offset={20}
       gap={8}
       visibleToasts={4}
