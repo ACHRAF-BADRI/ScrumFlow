@@ -1,6 +1,6 @@
 import { Bookmark, Bug, CheckSquare, Zap } from 'lucide-react';
 
-// Monday-inspired palette. Labels are i18n keys resolved in components.
+// Status, priority and type palette. Labels are i18n keys resolved in components.
 export const STATUSES = [
   { id: 'todo', color: '#a1a3b8' },
   { id: 'in_progress', color: '#fdab3d' },

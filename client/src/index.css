@@ -107,7 +107,7 @@
     background: color-mix(in srgb, var(--c) 24%, transparent);
     color: color-mix(in srgb, var(--c) 55%, white);
   }
-  /* Solid Monday-style status cell */
+  /* Solid colored status cell (table view) */
   .cell-solid {
     @apply flex h-full w-full items-center justify-center truncate px-2 text-[13px] font-semibold text-white transition hover:brightness-95;
     background: var(--c);
