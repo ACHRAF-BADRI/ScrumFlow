@@ -16,7 +16,13 @@ ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlo
 | --- | --- |
 | ![Task details](docs/screenshots/task.png) | ![Sign in](docs/screenshots/login.png) |
 
-![Mobile](docs/screenshots/mobile.png)
+### On phones
+
+The whole app is responsive. Here it is on a phone (390 px wide, dark mode):
+
+![ScrumFlow on phones: projects, table, board and task details](docs/screenshots/mobile.png)
+
+<p align="center"><sub>Projects list · Table view · Board · Task details</sub></p>
 
 ## How it works
 
