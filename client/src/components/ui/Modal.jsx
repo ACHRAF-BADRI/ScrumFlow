@@ -49,7 +49,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }) {
   );
 }
 
-/** Right side panel, like Monday's item view. Full screen on mobile. */
+/** Right side panel for item details. Full screen on mobile. */
 export function Drawer({ open, onClose, children, header }) {
   const { t } = useTranslation();
   useModalBehaviour(open, onClose);

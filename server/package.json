@@ -2,6 +2,7 @@
   "name": "scrumflow-server",
   "version": "1.0.0",
   "private": true,
+  "author": "ACHRAF EL BADRI",
   "description": "ScrumFlow REST API (Express + MongoDB)",
   "main": "src/index.js",
   "type": "module",
@@ -9,7 +10,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "node --watch-path=src src/index.js",
     "start": "node src/index.js",
     "seed": "node src/seed.js"
   },

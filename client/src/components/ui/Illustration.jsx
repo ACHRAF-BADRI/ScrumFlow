@@ -2,7 +2,7 @@ import clsx from 'clsx';
 
 /*
  * Empty-state illustrations. Drawn with the theme tokens so they follow
- * light / dark mode, plus the Monday-style accent palette.
+ * light / dark mode, plus the app status accent palette.
  */
 const C = {
   surface: 'rgb(var(--surface))',
