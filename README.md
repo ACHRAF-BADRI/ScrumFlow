@@ -144,3 +144,7 @@ The same structure works for other work-management tools (bug tracker, content c
 - **One drag & drop hook for everything.** `useContainerDnd` moves items between any containers (statuses, sprints, owners…) and returns the new order to save.
 - **Optimistic updates in one context.** `ProjectContext` updates the UI first, calls the API, and rolls back with a toast on error.
 - **i18n-first errors.** The server sends stable error codes and the client translates them, so adding a language means adding one file in `client/src/i18n/`.
+
+## Author
+
+**ACHRAF EL BADRI** · [github.com/ACHRAF-BADRI](https://github.com/ACHRAF-BADRI)

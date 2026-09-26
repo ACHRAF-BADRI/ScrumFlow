@@ -2,6 +2,7 @@
   "name": "scrumflow",
   "version": "1.0.0",
   "private": true,
+  "author": "ACHRAF EL BADRI",
   "description": "ScrumFlow: a Scrum workspace for teams (React + Express + MongoDB)",
   "scripts": {
     "install:all": "npm --prefix server install && npm --prefix client install",
