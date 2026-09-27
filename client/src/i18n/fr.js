@@ -351,6 +351,21 @@ const fr = {
     deleteForever: 'Supprimer définitivement',
     deleted: 'Votre compte a été supprimé',
   },
+  notifications: {
+    title: 'Notifications',
+    markAll: 'Tout marquer comme lu',
+    empty: 'Vous êtes à jour',
+    emptyText: 'Les assignations, mentions et invitations apparaîtront ici.',
+    open: 'Ouvrir',
+    unread: 'Non lue',
+    someone: 'Quelqu’un',
+    assigned: '{{actor}} vous a assigné {{key}}',
+    mention: '{{actor}} vous a mentionné sur {{key}}',
+    added: '{{actor}} vous a ajouté à {{project}}',
+  },
+  realtime: {
+    viewing: '{{name}} regarde ce projet',
+  },
   errors: {
     network: 'Impossible de joindre le serveur. Vérifiez votre connexion.',
     server: 'Une erreur est survenue. Veuillez réessayer.',

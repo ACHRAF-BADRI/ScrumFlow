@@ -47,7 +47,8 @@ export default function Tooltip({ label, side = 'top', disabled, children }) {
       {cloneElement(children, {
         onMouseEnter: show,
         onMouseLeave: hide,
-        onFocus: show,
+        // Keyboard focus only: a mouse click also focuses, and shouldn't pop the tooltip back
+        onFocus: (e) => e.currentTarget.matches(':focus-visible') && show(e),
         onBlur: hide,
         onPointerDown: (e) => {
           hide();

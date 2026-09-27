@@ -4,6 +4,7 @@ import Project from '../models/Project.js';
 import { requireAuth } from '../middleware/auth.js';
 import { addMember } from '../services/invitations.js';
 import { forbidden, notFound } from '../utils/httpError.js';
+import { emitProjectChanged } from '../realtime.js';
 
 // Mounted at /api/invitations (public: the invite link works before sign-up)
 const router = Router();
@@ -39,6 +40,7 @@ router.post('/:token/accept', requireAuth, async (req, res) => {
   await addMember(project._id, req.user._id, invitation.role);
   invitation.acceptedAt = new Date();
   await invitation.save();
+  emitProjectChanged(project._id);
   res.json({ projectId: project._id });
 });
 

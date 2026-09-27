@@ -351,6 +351,21 @@ const en = {
     deleteForever: 'Delete forever',
     deleted: 'Your account has been deleted',
   },
+  notifications: {
+    title: 'Notifications',
+    markAll: 'Mark all as read',
+    empty: 'You are all caught up',
+    emptyText: 'Assignments, mentions and invitations will show up here.',
+    open: 'Open',
+    unread: 'Unread',
+    someone: 'Someone',
+    assigned: '{{actor}} assigned you {{key}}',
+    mention: '{{actor}} mentioned you on {{key}}',
+    added: '{{actor}} added you to {{project}}',
+  },
+  realtime: {
+    viewing: '{{name}} is viewing this project',
+  },
   errors: {
     network: 'Cannot reach the server. Check your connection.',
     server: 'Something went wrong. Please try again.',

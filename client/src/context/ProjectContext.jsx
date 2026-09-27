@@ -2,17 +2,22 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, toastError } from '../lib/api';
 import { MANAGER_ROLES } from '../lib/constants';
 import { useProjects } from './ProjectsContext';
+import { useRealtime, useRealtimeEvent } from './RealtimeContext';
 
 const ProjectContext = createContext(null);
 const REFRESH_MS = 30_000;
 
 /**
  * Loads one project with its sprints and tasks and exposes optimistic
- * mutations. Data is silently refreshed on focus and every 30s so teammates'
- * changes show up without a reload.
+ * mutations. Teammates' changes arrive live through the socket (the page
+ * reloads its data silently); polling every 30s is only a fallback while the
+ * socket is disconnected.
  */
 export function ProjectProvider({ projectId, children }) {
   const { patchLocal, removeLocal } = useProjects();
+  const { socket, connected } = useRealtime();
+  const [viewers, setViewers] = useState([]);
+  const reloadTimer = useRef(null);
   const [project, setProject] = useState(null);
   const [role, setRole] = useState(null);
   const [sprints, setSprints] = useState([]);
@@ -38,7 +43,11 @@ export function ProjectProvider({ projectId, children }) {
         setTasks(tk.data.tasks);
         setError(null);
       } catch (err) {
-        if (!silent) setError(err);
+        // A silent refresh that gets 404 means the project is gone or we were removed from it
+        if (!silent || err.response?.status === 404) {
+          setError(err);
+          if (silent) setProject(null);
+        }
       } finally {
         if (!silent) setLoading(false);
       }
@@ -53,13 +62,61 @@ export function ProjectProvider({ projectId, children }) {
 
   useEffect(() => {
     const refresh = () => document.visibilityState === 'visible' && busy.current === 0 && load({ silent: true });
-    const timer = setInterval(refresh, REFRESH_MS);
+    // Live updates come from the socket; poll only while it is disconnected
+    const timer = connected ? null : setInterval(refresh, REFRESH_MS);
     window.addEventListener('focus', refresh);
     return () => {
       clearInterval(timer);
       window.removeEventListener('focus', refresh);
     };
+  }, [load, connected]);
+
+  /** Debounced silent reload that waits for the user to finish a drag or a save. */
+  const scheduleReload = useCallback(() => {
+    clearTimeout(reloadTimer.current);
+    const run = () => {
+      if (busy.current > 0) {
+        reloadTimer.current = setTimeout(run, 800);
+        return;
+      }
+      load({ silent: true });
+    };
+    reloadTimer.current = setTimeout(run, 250);
   }, [load]);
+  useEffect(() => () => clearTimeout(reloadTimer.current), []);
+
+  // Join the project's room (again after a reconnect, catching up on missed changes)
+  useEffect(() => {
+    if (!socket) return undefined;
+    let joinedOnce = false;
+    const join = () => {
+      socket.emit('project:join', projectId);
+      if (joinedOnce) scheduleReload();
+      joinedOnce = true;
+    };
+    if (socket.connected) join();
+    socket.on('connect', join);
+    return () => {
+      socket.off('connect', join);
+      socket.emit('project:leave');
+      setViewers([]);
+    };
+  }, [socket, projectId, scheduleReload]);
+
+  useRealtimeEvent('project:changed', (event) => {
+    if (event.projectId !== projectId) return;
+    if (event.kind === 'deleted') {
+      removeLocal(projectId);
+      setProject(null);
+      setError({ response: { status: 404, data: { code: 'errors.projectNotFound' } } });
+      return;
+    }
+    scheduleReload();
+  });
+
+  useRealtimeEvent('presence', (event) => {
+    if (event.projectId === projectId) setViewers(event.users);
+  });
 
   const members = useMemo(
     () => (project?.members ?? []).filter((m) => m.user).map((m) => ({ ...m.user, role: m.role })),
@@ -264,9 +321,11 @@ export function ProjectProvider({ projectId, children }) {
       activeSprint: sprints.find((s) => s.status === 'active') ?? null,
       loading,
       error,
+      viewers,
+      live: connected,
       ...actions,
     }),
-    [project, role, sprints, tasks, members, memberById, loading, error, actions]
+    [project, role, sprints, tasks, members, memberById, loading, error, viewers, connected, actions]
   );
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
