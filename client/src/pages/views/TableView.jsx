@@ -1,16 +1,16 @@
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import clsx from 'clsx';
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, GripVertical, History, MessageSquare, MoreHorizontal, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, GripVertical, History, MessageSquare, MessagesSquare, MoreHorizontal, Pencil, Play, Plus, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
 import { useContainerDnd } from '../../hooks/useContainerDnd';
 import { toastError } from '../../lib/api';
-import { STATUSES } from '../../lib/constants';
+import { useStatuses } from '../../hooks/useStatuses';
 import { daysLeft, formatDate, isOverdue, taskKey, toDateInput } from '../../lib/format';
 import { LabelChip, SprintStatusBadge, TypeIcon } from '../../components/ui/Badge';
 import { useConfirm } from '../../components/ui/Confirm';
@@ -20,21 +20,22 @@ import { AssigneePicker, PointsPicker, PriorityPicker, StatusPicker } from '../.
 import { CompleteSprintModal, SprintModal } from '../../components/sprints/SprintModals';
 import SprintGoal from '../../components/sprints/SprintGoal';
 import { ChecklistBadge } from '../../components/tasks/Checklist';
+import { EpicChip } from '../../components/tasks/Epics';
 import Tooltip from '../../components/ui/Tooltip';
 
 const GRID = 'grid grid-cols-[minmax(240px,1fr)_76px_148px_120px_64px_128px]';
 const GROUP_COLORS = { active: '#6161ff', planned: '#579bfc', backlog: '#a1a3b8' };
 
 function StatusBattery({ tasks }) {
-  const { t } = useTranslation();
+  const { list } = useStatuses();
   if (!tasks.length) return <div className="h-5 rounded bg-surface-2" />;
   return (
     <div className="flex h-5 overflow-hidden rounded">
-      {STATUSES.map((s) => {
-        const count = tasks.filter((task) => task.status === s.id).length;
+      {list.map((s) => {
+        const count = tasks.filter((task) => task.status === s.key).length;
         if (!count) return null;
         return (
-          <Tooltip key={s.id} label={`${t(`status.${s.id}`)}: ${count} (${Math.round((count / tasks.length) * 100)}%)`}>
+          <Tooltip key={s.key} label={`${s.name}: ${count} (${Math.round((count / tasks.length) * 100)}%)`}>
             <div className="transition-all hover:brightness-110" style={{ width: `${(count / tasks.length) * 100}%`, background: s.color }} />
           </Tooltip>
         );
@@ -83,8 +84,11 @@ function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, s
         </button>
         <TypeIcon type={task.type} className="h-3.5 w-3.5" />
         <button type="button" onClick={() => openTask(task._id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <span className={clsx('truncate font-medium hover:text-brand', task.status === 'done' && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
+          <span className={clsx('truncate font-medium hover:text-brand', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
           <span className="hidden shrink-0 font-mono text-[11px] text-muted md:inline">{taskKey(project, task)}</span>
+          <span className="hidden lg:inline-flex">
+            <EpicChip epicId={task.epic} />
+          </span>
           {task.labels?.slice(0, 2).map((l) => (
             <span key={l} className="hidden lg:inline">
               <LabelChip>{l}</LabelChip>
@@ -202,6 +206,7 @@ const InlineAdd = forwardRef(function InlineAdd({ sprintId, color }, ref) {
 
 function GroupMenu({ sprint, onEdit, onStart, onComplete, onDelete }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   return (
     <Popover
       align="end"
@@ -219,6 +224,11 @@ function GroupMenu({ sprint, onEdit, onStart, onComplete, onDelete }) {
           {sprint.status === 'planned' && (
             <button type="button" className="menu-item" onClick={() => (close(), onStart())}>
               <Play className="h-4 w-4" /> {t('sprint.start')}
+            </button>
+          )}
+          {sprint.status === 'active' && (
+            <button type="button" className="menu-item" onClick={() => (close(), navigate(`retro/${sprint._id}`))}>
+              <MessagesSquare className="h-4 w-4" /> {t('retro.open')}
             </button>
           )}
           {sprint.status === 'active' && (

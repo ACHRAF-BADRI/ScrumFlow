@@ -14,6 +14,7 @@ import { Drawer } from '../ui/Modal';
 import { EmptyState } from '../ui/Feedback';
 import { CommentText, MentionTextarea } from './Mentions';
 import Checklist from './Checklist';
+import { EpicPicker, EpicStories } from './Epics';
 import ActivityItem from '../activity/ActivityItem';
 import Tooltip from '../ui/Tooltip';
 import { AssigneePicker, PointsPicker, PriorityPicker, SprintPicker, StatusPicker, TypePicker } from './Pickers';
@@ -264,6 +265,11 @@ export default function TaskDrawer({ taskId, onClose }) {
           <Field label={t('task.sprint')}>
             <SprintPicker value={task.sprint} onChange={(sprint) => update({ sprint })} />
           </Field>
+          {task.type !== 'epic' && (
+            <Field label={t('epics.epic')}>
+              <EpicPicker value={task.epic ?? null} onChange={(epic) => update({ epic })} excludeId={task._id} />
+            </Field>
+          )}
           <Field label={t('task.points')}>
             <PointsPicker value={task.points} onChange={(points) => update({ points })} />
           </Field>
@@ -295,6 +301,7 @@ export default function TaskDrawer({ taskId, onClose }) {
           />
         </div>
 
+        {task.type === 'epic' && <EpicStories epic={task} />}
         <Checklist task={task} />
 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">

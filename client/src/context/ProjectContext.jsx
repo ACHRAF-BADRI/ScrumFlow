@@ -3,6 +3,7 @@ import { api, toastError } from '../lib/api';
 import { MANAGER_ROLES } from '../lib/constants';
 import { useProjects } from './ProjectsContext';
 import { useRealtime, useRealtimeEvent } from './RealtimeContext';
+import { DEFAULT_STATUSES } from '../hooks/useStatuses';
 
 const ProjectContext = createContext(null);
 const REFRESH_MS = 30_000;
@@ -136,16 +137,23 @@ export function ProjectProvider({ projectId, children }) {
 
   const replaceTask = useCallback((task) => setTasks((list) => list.map((t) => (t._id === task._id ? task : t))), []);
 
+  const doneKeys = useMemo(
+    () => new Set((project?.statuses?.length ? project.statuses : DEFAULT_STATUSES).filter((s) => s.category === 'done').map((s) => s.key)),
+    [project]
+  );
+
   // Apply changes locally, resolving ids to the populated objects the UI renders
   const applyLocal = useCallback(
     (task, changes) => {
       const next = { ...task, ...changes };
       if ('assignee' in changes) next.assignee = changes.assignee ? memberById[changes.assignee] ?? null : null;
       if ('sprint' in changes) next.sprint = changes.sprint || null;
-      if (changes.status) next.completedAt = changes.status === 'done' ? task.completedAt ?? new Date().toISOString() : null;
+      if ('epic' in changes) next.epic = changes.epic || null;
+      // Same rule as the API: a status in the "done" category completes the task
+      if (changes.status) next.completedAt = doneKeys.has(changes.status) ? task.completedAt ?? new Date().toISOString() : null;
       return next;
     },
-    [memberById]
+    [memberById, doneKeys]
   );
 
   const actions = useMemo(
@@ -298,7 +306,7 @@ export function ProjectProvider({ projectId, children }) {
         const { data } = await guarded(() => api.post(`${base}/sprints/${sprintId}/complete`, { moveTo }));
         setSprints((list) => list.map((s) => (s._id === sprintId ? data.sprint : s)));
         const target = moveTo && moveTo !== 'backlog' ? moveTo : null;
-        setTasks((list) => list.map((t) => (t.sprint === sprintId && t.status !== 'done' ? { ...t, sprint: target } : t)));
+        setTasks((list) => list.map((t) => (t.sprint === sprintId && !t.completedAt ? { ...t, sprint: target } : t)));
         return data;
       },
 

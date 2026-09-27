@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
 import { useTheme } from '../../context/ThemeContext';
 import { api, toastError } from '../../lib/api';
-import { STATUSES } from '../../lib/constants';
+import { useStatuses } from '../../hooks/useStatuses';
 import { formatDate } from '../../lib/format';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState, ProgressBar, Skeleton } from '../../components/ui/Feedback';
@@ -47,6 +47,7 @@ export default function DashboardView() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const { project, tasks, memberById } = useProject();
+  const { list: statuses } = useStatuses();
   const [stats, setStats] = useState(null);
 
   // Refetch when tasks change so the charts follow edits made in other views
@@ -78,7 +79,7 @@ export default function DashboardView() {
 
   const { totals } = stats;
   const completion = totals.tasks ? Math.round((totals.done / totals.tasks) * 100) : 0;
-  const statusData = STATUSES.map((s) => ({ name: t(`status.${s.id}`), value: stats.byStatus[s.id] ?? 0, color: s.color })).filter((d) => d.value);
+  const statusData = statuses.map((s) => ({ name: s.name, value: stats.byStatus[s.key] ?? 0, color: s.color })).filter((d) => d.value);
   const workload = Object.entries(stats.byAssignee)
     .map(([id, w]) => ({ id, user: id === 'unassigned' ? null : memberById[id], ...w }))
     .sort((a, b) => b.total - a.total);
@@ -184,6 +185,25 @@ export default function DashboardView() {
             {workload.length === 0 && <ChartEmpty text={t('dashboard.noData')} />}
           </ul>
         </Panel>
+
+        {stats.epics?.length > 0 && (
+          <Panel title={t('epics.title')} className="lg:col-span-2">
+            <ul className="grid gap-x-8 gap-y-4 md:grid-cols-2">
+              {stats.epics.map((epic) => (
+                <li key={epic._id}>
+                  <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 font-mono text-[11px] text-muted">{epic.key}</span>
+                      <span className="truncate font-semibold">{epic.title}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">{t('epics.progress', { done: epic.done, total: epic.total, points: epic.donePoints, totalPoints: epic.points })}</span>
+                  </div>
+                  <ProgressBar value={epic.total ? (epic.done / epic.total) * 100 : 0} color="#a25ddc" />
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
       </div>
     </div>
   );

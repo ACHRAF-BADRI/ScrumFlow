@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Link, useOutletContext } from 'react-router-dom';
 import clsx from 'clsx';
-import { CalendarDays, ChevronDown, Gauge, ListChecks, Trophy } from 'lucide-react';
+import { CalendarDays, ChevronDown, Gauge, ListChecks, MessagesSquare, Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
 import { formatDate, taskKey } from '../../lib/format';
@@ -107,6 +107,9 @@ function SprintCard({ sprint, tasks }) {
         {t('history.tasksDelivered', { count: tasks.length })}
         <span className="ml-auto text-xs font-medium">{open ? t('history.hideTasks') : t('history.showTasks')}</span>
       </button>
+      <Link to={`../retro/${sprint._id}`} relative="path" className="flex items-center gap-2 border-t border-line px-4 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand/5 sm:px-5">
+        <MessagesSquare className="h-4 w-4" /> {t('retro.open')}
+      </Link>
 
       {open && (
         <ul className="divide-y divide-line border-t border-line">
