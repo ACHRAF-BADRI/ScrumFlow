@@ -3,6 +3,9 @@ import Project, { ROLES } from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
 import Task, { TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
 import User from '../models/User.js';
+import Invitation, { INVITE_DAYS, hashToken, newToken } from '../models/Invitation.js';
+import { addedToProjectEmail, invitationEmail } from '../emails/templates.js';
+import { appUrl, sendEmail, sendInBackground } from '../utils/mailer.js';
 import { requireProject } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 
@@ -78,7 +81,11 @@ router.patch('/:projectId', requireProject(MANAGERS), async (req, res) => {
 
 router.delete('/:projectId', requireProject(['owner']), async (req, res) => {
   const projectId = req.project._id;
-  await Promise.all([Task.deleteMany({ project: projectId }), Sprint.deleteMany({ project: projectId })]);
+  await Promise.all([
+    Task.deleteMany({ project: projectId }),
+    Sprint.deleteMany({ project: projectId }),
+    Invitation.deleteMany({ project: projectId }),
+  ]);
   await req.project.deleteOne();
   res.status(204).end();
 });
@@ -90,14 +97,51 @@ router.post('/:projectId/members', requireProject(MANAGERS), async (req, res) =>
   if (!email) throw badRequest('Email is required', 'errors.missingFields');
   if (!['admin', 'member'].includes(role)) throw badRequest('Invalid role', 'errors.badRequest');
 
-  const user = await User.findOne({ email: String(email).toLowerCase().trim() });
-  if (!user) throw notFound('No user with this email. Ask them to sign up first.', 'errors.userNotFound');
-  if (req.project.roleOf(user._id)) throw badRequest('User is already a member', 'errors.alreadyMember');
+  const normalized = String(email).toLowerCase().trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) throw badRequest('Invalid email', 'errors.invalidEmail');
+  const user = await User.findOne({ email: normalized });
 
+  // No account yet: create (or refresh) an invitation and email the link
+  if (!user) {
+    const token = newToken();
+    await Invitation.findOneAndUpdate(
+      { project: req.project._id, email: normalized },
+      { role, tokenHash: hashToken(token), invitedBy: req.user._id, expiresAt: new Date(Date.now() + INVITE_DAYS * 86400000), acceptedAt: null },
+      { upsert: true, setDefaultsOnInsert: true }
+    );
+    const inviteUrl = appUrl(`/invite/${token}`);
+    const mail = await sendEmail(
+      invitationEmail({ to: normalized, lang: req.user.language, inviterName: req.user.name, projectName: req.project.name, role, url: inviteUrl })
+    );
+    // The link is returned so the inviter can share it if the email couldn't leave
+    return res.status(202).json({ invited: true, email: normalized, emailSent: mail.sent, inviteUrl });
+  }
+
+  if (req.project.roleOf(user._id)) throw badRequest('User is already a member', 'errors.alreadyMember');
   req.project.members.push({ user: user._id, role });
   await req.project.save();
   await req.project.populate('members.user', MEMBER_FIELDS);
+  if (user.emailNotifications) {
+    sendInBackground(
+      addedToProjectEmail({ to: user.email, lang: user.language, inviterName: req.user.name, projectName: req.project.name, role, url: appUrl(`/projects/${req.project._id}`) })
+    );
+  }
   res.status(201).json({ project: req.project });
+});
+
+// Pending invitations (people who don't have an account yet)
+router.get('/:projectId/invitations', requireProject(MANAGERS), async (req, res) => {
+  const invitations = await Invitation.pending({ project: req.project._id })
+    .select('email role expiresAt createdAt invitedBy')
+    .populate('invitedBy', 'name')
+    .sort({ createdAt: -1 });
+  res.json({ invitations });
+});
+
+router.delete('/:projectId/invitations/:invitationId', requireProject(MANAGERS), async (req, res) => {
+  const { deletedCount } = await Invitation.deleteOne({ _id: req.params.invitationId, project: req.project._id });
+  if (!deletedCount) throw notFound('Invitation not found', 'errors.notFound');
+  res.status(204).end();
 });
 
 router.patch('/:projectId/members/:userId', requireProject(MANAGERS), async (req, res) => {

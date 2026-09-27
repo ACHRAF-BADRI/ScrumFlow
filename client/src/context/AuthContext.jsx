@@ -67,6 +67,16 @@ export function AuthProvider({ children }) {
     []
   );
 
+  /** Sign in with a token returned by the API (e.g. after a password reset). */
+  const signInWith = useCallback(
+    (data) => {
+      tokenStore.set(data.token);
+      applyUser(data.user);
+      return data.user;
+    },
+    [applyUser]
+  );
+
   /** Save account details; unlike updateProfile, errors are thrown to the caller. */
   const saveProfile = useCallback(async (changes) => {
     const { data } = await api.patch('/auth/me', changes);
@@ -96,8 +106,9 @@ export function AuthProvider({ children }) {
       saveProfile,
       changePassword,
       deleteAccount,
+      signInWith,
     }),
-    [user, loading, authenticate, logout, updateProfile, saveProfile, changePassword, deleteAccount]
+    [user, loading, authenticate, logout, updateProfile, saveProfile, changePassword, deleteAccount, signInWith]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

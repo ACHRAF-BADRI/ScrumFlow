@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
 import sprintRoutes from './routes/sprints.js';
 import taskRoutes from './routes/tasks.js';
+import invitationRoutes from './routes/invitations.js';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/invitations', invitationRoutes);
 app.use('/api/projects', requireAuth, projectRoutes);
 app.use('/api/projects/:projectId/sprints', requireAuth, sprintRoutes);
 app.use('/api/projects/:projectId/tasks', requireAuth, taskRoutes);

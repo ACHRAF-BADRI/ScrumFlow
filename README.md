@@ -42,17 +42,19 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 
 ## Features
 
-- **Projects & team**: invite teammates by email, with roles (owner / admin / member) checked by the API
+- **Projects & team**: invite teammates by email, with roles (owner / admin / member) checked by the API. People without an account receive an invitation link, sign up and land directly in the project.
 - **Table view**: tasks grouped by sprint and backlog. Status, priority, assignee, points and due date are edited directly in the row. Each group shows a status bar and its total points. Drag tasks between groups to plan sprints.
 - **Board**: the active sprint by status, with drag & drop, quick add, sprint goal, progress and days left
 - **Sprints**: create, start (goal and dates), complete (choose where open tasks go). Completed sprints can't be deleted, so the team's velocity history stays accurate.
 - **History**: every completed sprint with its dates, goal, committed and delivered points, completion rate and delivered tasks, plus the team's average velocity and commitment reliability
-- **Task details**: a side panel with its own shareable link (`?task=…`), description, labels and comments
+- **Task details**: a side panel with its own shareable link (`?task=…`), description, labels and comments with **@mentions**
 - **Dashboard**: key numbers, sprint burndown, velocity, tasks by status and team workload
 - **Search & filters**: by keyword, task key, label or person ("My tasks")
 - **Interface**: colored status badges, toasts, themed tooltips, illustrated empty states, confirmation dialogs, collapsible sidebar (`Ctrl/⌘ + B`) and a mobile menu
 - **Languages**: English / French (i18next), saved on the user profile, dates formatted for each language
 - **Themes**: light / dark / system, saved on the profile, no flash on load
+- **Emails** (Resend): invitations, forgot password (1 hour link), and notifications when a task is assigned to you or someone mentions you. Each user can turn notifications off in Account settings.
+- **Account**: profile, password, email notifications, favorite projects, and account deletion confirmed by typing your name
 - **Team sync**: data refreshes when you come back to the tab and every 30 seconds, so teammates' changes show up
 
 ## Logo
@@ -118,6 +120,8 @@ npm run dev:client    # http://localhost:5173 (in a second terminal)
 2. Fill in `MONGODB_URI` (Atlas string), `CLIENT_URL` (your Netlify URL, which you can set after step 3) and `RESEND_API_KEY` (for emails, optional). `JWT_SECRET` is generated for you, and `EMAIL_FROM` defaults to `onboarding@resend.dev` until you verify a domain in Resend.
 3. Check `https://<your-service>.onrender.com/api/health` → `{"status":"ok","db":"connected"}`.
 
+> **Emails:** until a domain is verified in Resend (Domains → Add domain, then add the DNS records it shows), Resend only delivers to the email of your Resend account. The app still shows the invitation link so it can be shared by hand. Once the domain is verified, set `EMAIL_FROM` to an address on it, e.g. `ScrumFlow <noreply@yourdomain.com>`.
+
 > Free Render services sleep after inactivity. The first request can take ~50s, and the app shows a "waking up the server" toast while it waits.
 
 ### 3. Netlify (front end)
@@ -143,7 +147,11 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | GET/POST | `/projects/:id/tasks` | List (`?sprint=<id>\|backlog`) / create |
 | GET/PATCH/DELETE | `/projects/:id/tasks/:taskId` | Task CRUD |
 | POST | `/projects/:id/tasks/reorder` | Bulk order/status after drag & drop |
-| POST/DELETE | `/projects/:id/tasks/:taskId/comments[/:commentId]` | Comments |
+| POST/DELETE | `/projects/:id/tasks/:taskId/comments[/:commentId]` | Comments (`@Full Name` emails that member) |
+| GET/DELETE | `/projects/:id/invitations[/:invitationId]` | Pending invitations (admin) |
+| GET · POST | `/invitations/:token` · `/invitations/:token/accept` | Public invitation details / accept |
+| POST | `/auth/forgot-password` · `/auth/reset-password` | Email a reset link / choose a new password |
+| PATCH · POST · DELETE | `/auth/me` · `/auth/me/password` · `/auth/me` | Profile / change password / delete account |
 
 Errors return `{ message, code }`, where `code` is an i18n key (e.g. `errors.sprintAlreadyActive`) that the client translates.
 
