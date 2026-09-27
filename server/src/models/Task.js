@@ -12,6 +12,15 @@ const commentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const checklistItemSchema = new mongoose.Schema(
+  {
+    text: { type: String, required: true, trim: true, maxlength: 200 },
+    done: { type: Boolean, default: false },
+    doneAt: { type: Date, default: null },
+  },
+  { _id: true }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
@@ -31,6 +40,8 @@ const taskSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     completedAt: { type: Date, default: null },
     comments: [commentSchema],
+    // Subtasks: small steps inside the task, with their own done state
+    checklist: [checklistItemSchema],
   },
   { timestamps: true }
 );

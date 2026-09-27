@@ -13,6 +13,7 @@ import sprintRoutes from './routes/sprints.js';
 import taskRoutes from './routes/tasks.js';
 import invitationRoutes from './routes/invitations.js';
 import notificationRoutes from './routes/notifications.js';
+import meRoutes from './routes/me.js';
 import { emitProjectChanged, initRealtime } from './realtime.js';
 import { isAllowedOrigin } from './utils/cors.js';
 
@@ -41,6 +42,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/invitations', invitationRoutes);
 app.use('/api/notifications', requireAuth, notificationRoutes);
+app.use('/api/me', requireAuth, meRoutes);
 
 // After any successful change inside a project, tell the people viewing it to refresh
 app.use('/api/projects/:projectId', (req, res, next) => {

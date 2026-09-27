@@ -12,6 +12,8 @@ import { EmptyState, PageLoader } from './components/ui/Feedback';
 import AuthPage from './pages/AuthPage';
 import ProjectsPage from './pages/ProjectsPage';
 import AccountPage from './pages/AccountPage';
+import MyWorkPage from './pages/MyWorkPage';
+import ActivityView from './pages/views/ActivityView';
 import InvitePage from './pages/InvitePage';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordPages';
 import ProjectPage from './pages/ProjectPage';
@@ -83,10 +85,12 @@ export default function App() {
         <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProjectsPage />} />
           <Route path="account" element={<AccountPage />} />
+          <Route path="my-work" element={<MyWorkPage />} />
           <Route path="projects/:projectId" element={<ProjectPage />}>
             <Route index element={<TableView />} />
             <Route path="board" element={<BoardView />} />
             <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><DashboardView /></Suspense>} />
+            <Route path="activity" element={<ActivityView />} />
             <Route path="history" element={<HistoryView />} />
             <Route path="team" element={<TeamView />} />
           </Route>

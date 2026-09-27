@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Filter, History, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
+import { Activity, Filter, History, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ProjectProvider, useProject } from '../context/ProjectContext';
@@ -18,6 +18,7 @@ const TABS = [
   { to: '', end: true, label: 'views.table', icon: Table2 },
   { to: 'board', label: 'views.board', icon: KanbanSquare, tour: 'tab-board' },
   { to: 'dashboard', label: 'views.dashboard', icon: LayoutDashboard },
+  { to: 'activity', label: 'views.activity', icon: Activity },
   { to: 'history', label: 'views.history', icon: History },
   { to: 'team', label: 'views.team', icon: Users, tour: 'tab-team' },
 ];
@@ -79,7 +80,7 @@ function ProjectShell() {
   const watching = viewers.filter((v) => v._id !== user._id);
   const location = useLocation();
   // The project tour explains the table view, so only start it there
-  useAutoTour('project', Boolean(project) && !/\/(board|dashboard|history|team)$/.test(location.pathname));
+  useAutoTour('project', Boolean(project) && !/\/(board|dashboard|activity|history|team)$/.test(location.pathname));
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState({ search: '', assignee: null });
   const [newTask, setNewTask] = useState(null); // null = closed, object = defaults
@@ -150,7 +151,7 @@ function ProjectShell() {
     );
   }
 
-  const showFilters = !/\/(dashboard|history|team)$/.test(location.pathname);
+  const showFilters = !/\/(dashboard|activity|history|team)$/.test(location.pathname);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">

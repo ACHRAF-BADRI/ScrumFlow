@@ -10,6 +10,7 @@ export const TOURS = {
     { id: 'welcome' },
     { id: 'newProject', target: 'new-project' },
     { id: 'sidebar', target: 'sidebar-projects', placement: 'right' },
+    { id: 'myWork', target: 'nav-my-work', placement: 'right' },
     { id: 'language', target: 'language' },
     { id: 'theme', target: 'theme' },
     { id: 'account', target: 'user-menu' },

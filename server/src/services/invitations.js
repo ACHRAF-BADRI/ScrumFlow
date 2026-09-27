@@ -1,5 +1,6 @@
 import Invitation from '../models/Invitation.js';
 import Project from '../models/Project.js';
+import { logActivity } from './activity.js';
 
 /** Adds the user to the project (no-op if already a member). */
 export async function addMember(projectId, userId, role) {
@@ -10,6 +11,11 @@ export async function addMember(projectId, userId, role) {
     await project.save();
   }
   return project;
+}
+
+/** Log "X joined the project" (invitation accepted). */
+export async function logJoined(project, user) {
+  await logActivity({ project, actor: user, type: 'member.joined', data: { name: user.name } });
 }
 
 /**
@@ -24,7 +30,10 @@ export async function joinPendingInvitations(user) {
     const project = await addMember(invitation.project, user._id, invitation.role);
     invitation.acceptedAt = new Date();
     await invitation.save();
-    if (project) joined.push(String(project._id));
+    if (project) {
+      joined.push(String(project._id));
+      await logJoined(project, user);
+    }
   }
   return joined;
 }

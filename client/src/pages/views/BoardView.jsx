@@ -16,6 +16,7 @@ import { EmptyState, ProgressBar } from '../../components/ui/Feedback';
 import { AssigneePicker } from '../../components/tasks/Pickers';
 import { CompleteSprintModal } from '../../components/sprints/SprintModals';
 import SprintGoal from '../../components/sprints/SprintGoal';
+import { ChecklistBadge } from '../../components/tasks/Checklist';
 import Tooltip from '../../components/ui/Tooltip';
 
 function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
@@ -61,6 +62,7 @@ function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
             {formatDate(task.dueDate)}
           </span>
         )}
+        <ChecklistBadge checklist={task.checklist} />
         {task.comments?.length > 0 && (
           <span className="flex items-center gap-1 text-[11px] text-muted">
             <MessageSquare className="h-3 w-3" />

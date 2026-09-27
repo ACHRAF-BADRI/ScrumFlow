@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { FolderKanban, LayoutGrid, Menu, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
+import { FolderKanban, LayoutGrid, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjects } from '../../context/ProjectsContext';
 import { Skeleton } from '../ui/Feedback';
@@ -45,6 +45,12 @@ function Sidebar({ onNavigate, onNewProject, collapsed = false }) {
         <NavLink to="/" end className={linkClass} onClick={onNavigate}>
           <LayoutGrid className="h-[18px] w-[18px] shrink-0" />
           {!collapsed && t('nav.projects')}
+        </NavLink>
+      </Tooltip>
+      <Tooltip side="right" label={t('nav.myWork')} disabled={!collapsed}>
+        <NavLink to="/my-work" className={linkClass} onClick={onNavigate} data-tour="nav-my-work">
+          <ListTodo className="h-[18px] w-[18px] shrink-0" />
+          {!collapsed && t('nav.myWork')}
         </NavLink>
       </Tooltip>
 

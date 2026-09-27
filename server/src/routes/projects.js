@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import Project, { ROLES } from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
 import Task, { TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
@@ -9,6 +10,8 @@ import { appUrl, sendEmail } from '../utils/mailer.js';
 import { notifyAddedToProject } from '../services/notify.js';
 import { emitToUser } from '../realtime.js';
 import Notification from '../models/Notification.js';
+import Activity from '../models/Activity.js';
+import { logActivity } from '../services/activity.js';
 import { requireProject } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 
@@ -87,6 +90,7 @@ router.delete('/:projectId', requireProject(['owner']), async (req, res) => {
   const memberIds = req.project.members.map((m) => String(m.user));
   await Promise.all([
     Notification.deleteMany({ project: projectId }),
+    Activity.deleteMany({ project: projectId }),
     Task.deleteMany({ project: projectId }),
     Sprint.deleteMany({ project: projectId }),
     Invitation.deleteMany({ project: projectId }),
@@ -128,6 +132,7 @@ router.post('/:projectId/members', requireProject(MANAGERS), async (req, res) =>
   await req.project.save();
   await req.project.populate('members.user', MEMBER_FIELDS);
   notifyAddedToProject({ actor: req.user, project: req.project, user, role }).catch(() => {});
+  await logActivity({ project: req.project, actor: req.user, type: 'member.added', data: { name: user.name, role } });
   res.status(201).json({ project: req.project });
 });
 
@@ -146,6 +151,16 @@ router.delete('/:projectId/invitations/:invitationId', requireProject(MANAGERS),
   res.status(204).end();
 });
 
+// Activity log of the project, newest first; `before` (ISO date) loads older entries
+router.get('/:projectId/activity', requireProject(), async (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 40, 100);
+  const filter = { project: req.project._id };
+  if (req.query.before) filter.createdAt = { $lt: new Date(req.query.before) };
+  if (req.query.actor && mongoose.isValidObjectId(req.query.actor)) filter.actor = req.query.actor;
+  const activity = await Activity.find(filter).sort({ createdAt: -1 }).limit(limit + 1).populate('actor', 'name avatarColor');
+  res.json({ activity: activity.slice(0, limit), hasMore: activity.length > limit });
+});
+
 router.patch('/:projectId/members/:userId', requireProject(MANAGERS), async (req, res) => {
   const { role } = req.body || {};
   if (!ROLES.includes(role) || role === 'owner') throw badRequest('Invalid role', 'errors.badRequest');
@@ -156,6 +171,8 @@ router.patch('/:projectId/members/:userId', requireProject(MANAGERS), async (req
 
   member.role = role;
   await req.project.save();
+  const target = await User.findById(req.params.userId).select('name');
+  await logActivity({ project: req.project, actor: req.user, type: 'member.role', data: { name: target?.name, role } });
   await req.project.populate('members.user', MEMBER_FIELDS);
   res.json({ project: req.project });
 });
@@ -172,6 +189,8 @@ router.delete('/:projectId/members/:userId', requireProject(), async (req, res) 
   req.project.members = req.project.members.filter((m) => String(m.user) !== userId);
   await req.project.save();
   emitToUser(userId, 'projects:changed');
+  const removed = await User.findById(userId).select('name');
+  await logActivity({ project: req.project, actor: req.user, type: isSelf ? 'member.left' : 'member.removed', data: { name: removed?.name } });
   // Unassign their work so it shows up as unassigned instead of pointing at a non-member
   await Task.updateMany({ project: req.project._id, assignee: userId }, { assignee: null });
   await req.project.populate('members.user', MEMBER_FIELDS);

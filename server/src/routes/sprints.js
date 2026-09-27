@@ -3,6 +3,7 @@ import Sprint from '../models/Sprint.js';
 import Task from '../models/Task.js';
 import { isValidId, requireProject } from '../middleware/auth.js';
 import { badRequest, notFound, pick } from '../utils/httpError.js';
+import { logActivity } from '../services/activity.js';
 
 // Mounted at /api/projects/:projectId/sprints
 const router = Router({ mergeParams: true });
@@ -31,6 +32,7 @@ router.post('/', requireProject(MANAGERS), async (req, res) => {
     name: req.body?.name?.trim() || `Sprint ${count + 1}`,
     project: req.project._id,
   });
+  await logActivity({ project: req.project, actor: req.user, type: 'sprint.created', data: { name: sprint.name } });
   res.status(201).json({ sprint });
 });
 
@@ -51,6 +53,7 @@ router.delete('/:sprintId', requireProject(MANAGERS), async (req, res) => {
   // Tasks go back to the product backlog rather than being deleted
   await Task.updateMany({ sprint: sprint._id }, { sprint: null });
   await sprint.deleteOne();
+  await logActivity({ project: req.project, actor: req.user, type: 'sprint.deleted', data: { name: sprint.name } });
   res.status(204).end();
 });
 
@@ -78,6 +81,7 @@ router.post('/:sprintId/start', requireProject(MANAGERS), async (req, res) => {
     committedPoints: sumPoints(tasks),
   });
   await sprint.save();
+  await logActivity({ project: req.project, actor: req.user, type: 'sprint.started', data: { name: sprint.name } });
   res.json({ sprint });
 });
 
@@ -108,6 +112,7 @@ router.post('/:sprintId/complete', requireProject(MANAGERS), async (req, res) =>
     completedPoints: sumPoints(tasks.filter((t) => t.status === 'done')),
   });
   await sprint.save();
+  await logActivity({ project: req.project, actor: req.user, type: 'sprint.completed', data: { name: sprint.name, moved: unfinished.length } });
   res.json({ sprint, moved: unfinished.length });
 });
 

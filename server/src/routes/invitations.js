@@ -2,7 +2,7 @@ import { Router } from 'express';
 import Invitation, { hashToken } from '../models/Invitation.js';
 import Project from '../models/Project.js';
 import { requireAuth } from '../middleware/auth.js';
-import { addMember } from '../services/invitations.js';
+import { addMember, logJoined } from '../services/invitations.js';
 import { forbidden, notFound } from '../utils/httpError.js';
 import { emitProjectChanged } from '../realtime.js';
 
@@ -37,7 +37,8 @@ router.post('/:token/accept', requireAuth, async (req, res) => {
   if (invitation.email !== req.user.email) {
     throw forbidden('This invitation was sent to another email address', 'errors.inviteWrongAccount');
   }
-  await addMember(project._id, req.user._id, invitation.role);
+  const joinedProject = await addMember(project._id, req.user._id, invitation.role);
+  if (joinedProject) await logJoined(joinedProject, req.user);
   invitation.acceptedAt = new Date();
   await invitation.save();
   emitProjectChanged(project._id);

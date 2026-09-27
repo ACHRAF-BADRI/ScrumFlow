@@ -19,6 +19,7 @@ import { Popover } from '../../components/ui/Popover';
 import { AssigneePicker, PointsPicker, PriorityPicker, StatusPicker } from '../../components/tasks/Pickers';
 import { CompleteSprintModal, SprintModal } from '../../components/sprints/SprintModals';
 import SprintGoal from '../../components/sprints/SprintGoal';
+import { ChecklistBadge } from '../../components/tasks/Checklist';
 import Tooltip from '../../components/ui/Tooltip';
 
 const GRID = 'grid grid-cols-[minmax(240px,1fr)_76px_148px_120px_64px_128px]';
@@ -90,6 +91,7 @@ function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, s
             </span>
           ))}
         </button>
+        <ChecklistBadge checklist={task.checklist} />
         {task.comments?.length > 0 && (
           <button type="button" onClick={() => openTask(task._id)} className="flex shrink-0 items-center gap-1 text-xs text-muted hover:text-brand">
             <MessageSquare className="h-3.5 w-3.5" />
