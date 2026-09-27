@@ -9,6 +9,7 @@ import LogoMark from '../ui/LogoMark';
 import Tooltip from '../ui/Tooltip';
 import { useFavorites } from '../../hooks/useFavorites';
 import NewProjectModal from '../NewProjectModal';
+import NotificationBell from './NotificationBell';
 import { LanguageSwitcher, ThemeToggle, UserMenu } from './Preferences';
 
 export function Logo({ className, compact }) {
@@ -208,6 +209,7 @@ export default function AppLayout() {
           </button>
           <Logo className="lg:hidden" />
           <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
             <LanguageSwitcher />
             <ThemeToggle />
             <div className="ml-1.5">

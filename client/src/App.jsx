@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from './context/AuthContext';
 import { ProjectsProvider } from './context/ProjectsContext';
+import { RealtimeProvider } from './context/RealtimeContext';
 import { useTheme } from './context/ThemeContext';
 import AppLayout from './components/layout/AppLayout';
 import AppToaster from './components/ui/AppToaster';
@@ -28,9 +29,11 @@ function RequireAuth({ children }) {
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
   return (
-    <ProjectsProvider>
-      <TourProvider>{children}</TourProvider>
-    </ProjectsProvider>
+    <RealtimeProvider>
+      <ProjectsProvider>
+        <TourProvider>{children}</TourProvider>
+      </ProjectsProvider>
+    </RealtimeProvider>
   );
 }
 

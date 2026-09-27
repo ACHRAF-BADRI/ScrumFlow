@@ -4,8 +4,11 @@ import Sprint from '../models/Sprint.js';
 import Task, { TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
 import User from '../models/User.js';
 import Invitation, { INVITE_DAYS, hashToken, newToken } from '../models/Invitation.js';
-import { addedToProjectEmail, invitationEmail } from '../emails/templates.js';
-import { appUrl, sendEmail, sendInBackground } from '../utils/mailer.js';
+import { invitationEmail } from '../emails/templates.js';
+import { appUrl, sendEmail } from '../utils/mailer.js';
+import { notifyAddedToProject } from '../services/notify.js';
+import { emitToUser } from '../realtime.js';
+import Notification from '../models/Notification.js';
 import { requireProject } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 
@@ -81,12 +84,15 @@ router.patch('/:projectId', requireProject(MANAGERS), async (req, res) => {
 
 router.delete('/:projectId', requireProject(['owner']), async (req, res) => {
   const projectId = req.project._id;
+  const memberIds = req.project.members.map((m) => String(m.user));
   await Promise.all([
+    Notification.deleteMany({ project: projectId }),
     Task.deleteMany({ project: projectId }),
     Sprint.deleteMany({ project: projectId }),
     Invitation.deleteMany({ project: projectId }),
   ]);
   await req.project.deleteOne();
+  memberIds.forEach((id) => emitToUser(id, 'projects:changed'));
   res.status(204).end();
 });
 
@@ -121,11 +127,7 @@ router.post('/:projectId/members', requireProject(MANAGERS), async (req, res) =>
   req.project.members.push({ user: user._id, role });
   await req.project.save();
   await req.project.populate('members.user', MEMBER_FIELDS);
-  if (user.emailNotifications) {
-    sendInBackground(
-      addedToProjectEmail({ to: user.email, lang: user.language, inviterName: req.user.name, projectName: req.project.name, role, url: appUrl(`/projects/${req.project._id}`) })
-    );
-  }
+  notifyAddedToProject({ actor: req.user, project: req.project, user, role }).catch(() => {});
   res.status(201).json({ project: req.project });
 });
 
@@ -169,6 +171,7 @@ router.delete('/:projectId/members/:userId', requireProject(), async (req, res) 
 
   req.project.members = req.project.members.filter((m) => String(m.user) !== userId);
   await req.project.save();
+  emitToUser(userId, 'projects:changed');
   // Unassign their work so it shows up as unassigned instead of pointing at a non-member
   await Task.updateMany({ project: req.project._id, assignee: userId }, { assignee: null });
   await req.project.populate('members.user', MEMBER_FIELDS);

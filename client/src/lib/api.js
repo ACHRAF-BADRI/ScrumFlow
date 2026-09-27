@@ -2,7 +2,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import i18n from '../i18n';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
+export const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 const TOKEN_KEY = 'sf_token';
 
 export const tokenStore = {
@@ -12,6 +12,12 @@ export const tokenStore = {
 };
 
 export const api = axios.create({ baseURL: `${API_URL}/api`, timeout: 90_000 });
+
+/** Lets the API skip the realtime echo of our own changes. */
+export function setSocketId(id) {
+  if (id) api.defaults.headers.common['X-Socket-Id'] = id;
+  else delete api.defaults.headers.common['X-Socket-Id'];
+}
 
 // Free Render instances sleep when idle; tell the user if the first request is slow
 let pending = 0;

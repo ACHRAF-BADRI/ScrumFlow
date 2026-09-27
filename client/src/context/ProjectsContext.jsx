@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, toastError } from '../lib/api';
+import { useRealtimeEvent } from './RealtimeContext';
 
 const ProjectsContext = createContext(null);
 
@@ -25,6 +26,9 @@ export function ProjectsProvider({ children }) {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Added to / removed from a project, or a project was deleted
+  useRealtimeEvent('projects:changed', () => refresh());
 
   const createProject = useCallback(async (payload) => {
     const { data } = await api.post('/projects', payload);

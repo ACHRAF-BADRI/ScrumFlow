@@ -11,6 +11,7 @@ import { EmptyState, PageLoader } from '../components/ui/Feedback';
 import { OptionList, Popover } from '../components/ui/Popover';
 import TaskDrawer from '../components/tasks/TaskDrawer';
 import { useAutoTour } from '../components/tour/TourProvider';
+import Tooltip from '../components/ui/Tooltip';
 import NewTaskModal from '../components/tasks/NewTaskModal';
 
 const TABS = [
@@ -73,7 +74,9 @@ function Filters({ filters, setFilters }) {
 
 function ProjectShell() {
   const { t } = useTranslation();
-  const { project, members, loading, error, reload } = useProject();
+  const { project, members, loading, error, reload, viewers } = useProject();
+  const { user } = useAuth();
+  const watching = viewers.filter((v) => v._id !== user._id);
   const location = useLocation();
   // The project tour explains the table view, so only start it there
   useAutoTour('project', Boolean(project) && !/\/(board|dashboard|history|team)$/.test(location.pathname));
@@ -161,6 +164,23 @@ function ProjectShell() {
             {project.description && <p className="line-clamp-1 text-sm text-muted">{project.description}</p>}
           </div>
           <div className="flex items-center gap-3">
+            {watching.length > 0 && (
+              <div className="flex items-center gap-2" data-testid="viewers">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00c875] opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00c875]" />
+                </span>
+                <div className="flex -space-x-1.5">
+                  {watching.slice(0, 4).map((v) => (
+                    <Tooltip key={v._id} label={t('realtime.viewing', { name: v.name })}>
+                      <span className="rounded-full ring-2 ring-[#00c875]">
+                        <Avatar user={v} size="sm" />
+                      </span>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            )}
             <Link to="team" className="hidden sm:block" aria-label={t('team.members')}>
               <AvatarStack users={members} max={5} size="md" />
             </Link>

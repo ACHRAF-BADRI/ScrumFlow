@@ -55,7 +55,8 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Themes**: light / dark / system, saved on the profile, no flash on load
 - **Emails** (Resend): invitations, forgot password (1 hour link), and notifications when a task is assigned to you or someone mentions you. Each user can turn notifications off in Account settings.
 - **Account**: profile, password, email notifications, favorite projects, and account deletion confirmed by typing your name
-- **Team sync**: data refreshes when you come back to the tab and every 30 seconds, so teammates' changes show up
+- **Real time** (Socket.io): teammates' changes appear instantly without reloading, and the project header shows who is viewing it right now
+- **Notification bell**: assignments, @mentions and "added to a project" arrive live with a toast; open one to jump to the task, or mark all as read
 
 ## Logo
 
@@ -65,8 +66,8 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 
 | Layer | Tech | Hosting |
 | --- | --- | --- |
-| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide | **Netlify** |
-| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting | **Render** |
+| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client | **Netlify** |
+| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend | **Render** |
 | Database | MongoDB | **MongoDB Atlas** |
 
 ```
@@ -151,7 +152,10 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | GET/DELETE | `/projects/:id/invitations[/:invitationId]` | Pending invitations (admin) |
 | GET · POST | `/invitations/:token` · `/invitations/:token/accept` | Public invitation details / accept |
 | POST | `/auth/forgot-password` · `/auth/reset-password` | Email a reset link / choose a new password |
+| GET · POST · PATCH | `/notifications` · `/notifications/read-all` · `/notifications/:id/read` | Bell: latest notifications / mark as read |
 | PATCH · POST · DELETE | `/auth/me` · `/auth/me/password` · `/auth/me` | Profile / change password / delete account |
+
+Realtime events (Socket.io, same JWT in the handshake): `project:changed`, `presence`, `notification`, `projects:changed`. The socket only says *when* to refresh; data always comes from the REST API.
 
 Errors return `{ message, code }`, where `code` is an i18n key (e.g. `errors.sprintAlreadyActive`) that the client translates.
 

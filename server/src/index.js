@@ -1,3 +1,4 @@
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -11,6 +12,9 @@ import projectRoutes from './routes/projects.js';
 import sprintRoutes from './routes/sprints.js';
 import taskRoutes from './routes/tasks.js';
 import invitationRoutes from './routes/invitations.js';
+import notificationRoutes from './routes/notifications.js';
+import { emitProjectChanged, initRealtime } from './realtime.js';
+import { isAllowedOrigin } from './utils/cors.js';
 
 const app = express();
 
@@ -20,11 +24,7 @@ app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {
-      // Allow same-origin tools (curl, health checks), configured origins and Netlify deploy previews
-      const allowed =
-        !origin ||
-        config.clientUrls.includes(origin) ||
-        config.clientUrls.some((url) => url.endsWith('.netlify.app') && origin.endsWith(`--${url.replace(/^https?:\/\//, '')}`));
+      const allowed = isAllowedOrigin(origin);
       // Reject without throwing: the browser blocks the request, and the log says what to fix
       if (!allowed) console.warn(`CORS: origin ${origin} is not in CLIENT_URL (${config.clientUrls.join(', ')})`);
       callback(null, allowed);
@@ -40,6 +40,20 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/notifications', requireAuth, notificationRoutes);
+
+// After any successful change inside a project, tell the people viewing it to refresh
+app.use('/api/projects/:projectId', (req, res, next) => {
+  if (req.method !== 'GET') {
+    // Read now: Express restores the full URL once this middleware has passed the request on
+    const kind = req.method === 'DELETE' && req.path === '/' ? 'deleted' : 'changed';
+    const { projectId } = req.params;
+    res.on('finish', () => {
+      if (res.statusCode < 400) emitProjectChanged(projectId, { kind, exceptSocket: req.get('x-socket-id') });
+    });
+  }
+  next();
+});
 app.use('/api/projects', requireAuth, projectRoutes);
 app.use('/api/projects/:projectId/sprints', requireAuth, sprintRoutes);
 app.use('/api/projects/:projectId/tasks', requireAuth, taskRoutes);
@@ -51,7 +65,9 @@ mongoose
   .connect(config.mongoUri)
   .then(() => {
     console.log('Connected to MongoDB');
-    app.listen(config.port, () => console.log(`API listening on port ${config.port}`));
+    const server = http.createServer(app);
+    initRealtime(server);
+    server.listen(config.port, () => console.log(`API listening on port ${config.port}`));
   })
   .catch((err) => {
     console.error('MongoDB connection failed:', err.message);

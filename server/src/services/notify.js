@@ -1,17 +1,37 @@
+import Notification from '../models/Notification.js';
 import User from '../models/User.js';
-import { mentionEmail, taskAssignedEmail } from '../emails/templates.js';
+import { addedToProjectEmail, mentionEmail, taskAssignedEmail } from '../emails/templates.js';
 import { appUrl, sendInBackground } from '../utils/mailer.js';
+import { emitToUser } from '../realtime.js';
+import { populateNotification } from '../routes/notifications.js';
 
 const RECIPIENT_FIELDS = 'name email language emailNotifications';
 const taskUrl = (project, task) => appUrl(`/projects/${project._id}?task=${task._id}`);
 const taskKey = (project, task) => `${project.key}-${task.number}`;
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Email the new assignee (not when you assign yourself, or when they opted out). */
+/** Store an in-app notification and push it live to the user's open tabs. */
+async function pushNotification(userId, data) {
+  const created = await Notification.create({ user: userId, ...data });
+  const notification = await populateNotification(Notification.findById(created._id));
+  emitToUser(userId, 'notification', { notification });
+}
+
+/** Bell + email for the new assignee (not when you assign yourself). */
 export async function notifyAssigned({ actor, project, task, assigneeId }) {
   if (!assigneeId || String(assigneeId) === String(actor._id)) return;
   const assignee = await User.findById(assigneeId).select(RECIPIENT_FIELDS);
-  if (!assignee || !assignee.emailNotifications) return;
+  if (!assignee) return;
+  await pushNotification(assignee._id, {
+    type: 'assigned',
+    actor: actor._id,
+    project: project._id,
+    task: task._id,
+    projectName: project.name,
+    taskKey: taskKey(project, task),
+    taskTitle: task.title,
+  });
+  if (!assignee.emailNotifications) return;
   sendInBackground(
     taskAssignedEmail({
       to: assignee.email,
@@ -43,6 +63,16 @@ export async function notifyMentions({ actor, project, task, text }) {
   const mentioned = await findMentioned(project, text, actor._id);
   const excerpt = text.length > 280 ? `${text.slice(0, 277)}...` : text;
   for (const member of mentioned) {
+    await pushNotification(member._id, {
+      type: 'mention',
+      actor: actor._id,
+      project: project._id,
+      task: task._id,
+      projectName: project.name,
+      taskKey: taskKey(project, task),
+      taskTitle: task.title,
+      excerpt,
+    });
     if (!member.emailNotifications) continue;
     sendInBackground(
       mentionEmail({
@@ -57,4 +87,14 @@ export async function notifyMentions({ actor, project, task, text }) {
       })
     );
   }
+}
+
+/** Bell + email when someone adds you to a project. */
+export async function notifyAddedToProject({ actor, project, user, role }) {
+  await pushNotification(user._id, { type: 'added', actor: actor._id, project: project._id, projectName: project.name });
+  emitToUser(user._id, 'projects:changed');
+  if (!user.emailNotifications) return;
+  sendInBackground(
+    addedToProjectEmail({ to: user.email, lang: user.language, inviterName: actor.name, projectName: project.name, role, url: appUrl(`/projects/${project._id}`) })
+  );
 }

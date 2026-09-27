@@ -6,6 +6,7 @@ import Project from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
 import Task from '../models/Task.js';
 import Invitation, { hashToken, newToken } from '../models/Invitation.js';
+import Notification from '../models/Notification.js';
 import { resetPasswordEmail } from '../emails/templates.js';
 import { appUrl, sendEmail } from '../utils/mailer.js';
 import { joinPendingInvitations } from '../services/invitations.js';
@@ -167,6 +168,7 @@ router.delete('/me', requireAuth, authLimiter, async (req, res) => {
   // Their open work becomes unassigned instead of pointing at a deleted account
   await Task.updateMany({ assignee: userId }, { assignee: null });
   await Invitation.deleteMany({ invitedBy: userId, acceptedAt: null });
+  await Notification.deleteMany({ user: userId });
   await User.deleteOne({ _id: userId });
 
   res.json({ ok: true, transferred, deleted });
