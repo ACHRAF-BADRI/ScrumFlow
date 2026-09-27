@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
-import { PRIORITY_MAP, STATUS_MAP, TYPE_MAP } from '../../lib/constants';
+import { PRIORITY_MAP, TYPE_MAP } from '../../lib/constants';
+import { useStatuses } from '../../hooks/useStatuses';
 
 export function Badge({ color = '#6161ff', icon: Icon, dot, className, children }) {
   return (
@@ -12,11 +13,13 @@ export function Badge({ color = '#6161ff', icon: Icon, dot, className, children 
   );
 }
 
-export function StatusBadge({ status, className }) {
-  const { t } = useTranslation();
+/** `statuses`: the task's project workflow when outside a project page (e.g. My work). */
+export function StatusBadge({ status, className, statuses }) {
+  const { map } = useStatuses(statuses);
+  const meta = map[status];
   return (
-    <Badge color={STATUS_MAP[status]?.color} dot className={className}>
-      {t(`status.${status}`)}
+    <Badge color={meta?.color ?? '#a1a3b8'} dot className={className}>
+      {meta?.name ?? status}
     </Badge>
   );
 }

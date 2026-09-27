@@ -1,5 +1,7 @@
 # ScrumFlow
 
+[![CI](https://github.com/ACHRAF-BADRI/React-To-Do-List/actions/workflows/ci.yml/badge.svg)](https://github.com/ACHRAF-BADRI/React-To-Do-List/actions/workflows/ci.yml)
+
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
 ### 🔗 Live app: [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app/register)
@@ -45,6 +47,11 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Projects & team**: invite teammates by email, with roles (owner / admin / member) checked by the API. People without an account receive an invitation link, sign up and land directly in the project.
 - **Table view**: tasks grouped by sprint and backlog. Status, priority, assignee, points and due date are edited directly in the row. Each group shows a status bar and its total points. Drag tasks between groups to plan sprints.
 - **Board**: the active sprint by status, with drag & drop, quick add, sprint goal, progress and days left
+- **Custom workflow**: each project chooses its own statuses (name, color, order) and which ones count as done, in Team & settings
+- **Calendar**: tasks on a month grid by due date; drag a task to another day (or from "No due date") to reschedule it; the active sprint is highlighted
+- **Epics**: link stories to an epic, see its progress in the task panel and on the dashboard, filter the board by epic
+- **Retrospective** for each sprint: what went well, what to improve, actions; votes, and actions turned into backlog tasks
+- **Command palette** (`Ctrl/⌘ + K`): search any task (by title or key such as `WEB-12`) or project, and run quick actions
 - **Sprints**: create, start (goal and dates), complete (choose where open tasks go). Completed sprints can't be deleted, so the team's velocity history stays accurate.
 - **Activity log**: every change in the project (status, assignee, points, checklist, sprints, members…) as a timeline grouped by day, filterable by person, updated live
 - **My work**: all the tasks assigned to you in every project, grouped by due date (overdue, today, this week, later), with a project filter and inline status change
@@ -80,7 +87,7 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │       ├── context/      Auth, Theme, Projects, Project (data + optimistic mutations)
 │       ├── hooks/        useContainerDnd (shared drag & drop logic)
 │       ├── i18n/         en.js, fr.js
-│       └── pages/        Auth, Projects, My work, Account, Project + views/ (Table, Board, Dashboard, Activity, History, Team)
+│       └── pages/        Auth, Projects, My work, Account, Project + views/ (Table, Board, Calendar, Dashboard, Activity, History, Retrospective, Team)
 ├── server/          Express API (Render)
 │   └── src/
 │       ├── models/       User, Project, Sprint, Task, Invitation, Notification, Activity
@@ -109,6 +116,15 @@ npm run seed          # optional, local database only: sample team and project (
 npm run dev:server    # http://localhost:5000
 npm run dev:client    # http://localhost:5173 (in a second terminal)
 ```
+
+## Tests
+
+```bash
+npm --prefix server test   # API: node:test + Supertest on an in-memory MongoDB (no Atlas needed)
+npm --prefix client test   # Front end: Vitest + Testing Library
+```
+
+GitHub Actions runs both suites and the production build on every push to `main` and on every pull request (`.github/workflows/ci.yml`).
 
 ## Deploy
 
@@ -141,7 +157,7 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | POST | `/auth/register`, `/auth/login` | Get a JWT |
 | GET/PATCH | `/auth/me` | Profile, language, theme |
 | GET/POST | `/projects` | List (with stats) / create |
-| GET/PATCH/DELETE | `/projects/:id` | Read / update (admin) / delete (owner) |
+| GET/PATCH/DELETE | `/projects/:id` | Read / update, including the `statuses` workflow (admin) / delete (owner) |
 | POST/PATCH/DELETE | `/projects/:id/members[/:userId]` | Invite, change role, remove / leave |
 | GET | `/projects/:id/stats` | Totals, burndown, velocity, workload |
 | GET/POST | `/projects/:id/sprints` | List / create |
@@ -154,6 +170,8 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | POST/PATCH/DELETE | `/projects/:id/tasks/:taskId/checklist[/:itemId]` | Checklist items (add, rename, check, delete) |
 | GET | `/projects/:id/activity` · `/projects/:id/tasks/:taskId/activity` | Activity log (`?before=` for older, `?actor=`) / one task's history |
 | GET | `/me/tasks` | My work (`?status=done` for the last 14 days) |
+| GET | `/me/search?q=` | Command palette: tasks by title or key, projects |
+| GET/POST/PATCH/DELETE | `/projects/:id/sprints/:sprintId/retro[/:itemId]` | Retrospective cards · `POST …/:itemId/vote` · `POST …/:itemId/task` |
 | GET/DELETE | `/projects/:id/invitations[/:invitationId]` | Pending invitations (admin) |
 | GET · POST | `/invitations/:token` · `/invitations/:token/accept` | Public invitation details / accept |
 | POST | `/auth/forgot-password` · `/auth/reset-password` | Email a reset link / choose a new password |
@@ -169,7 +187,7 @@ Errors return `{ message, code }`, where `code` is an i18n key (e.g. `errors.spr
 The same structure works for other work-management tools (bug tracker, content calendar, sales pipeline…):
 
 - **Workspace → Project → Iteration → Item.** Rename `Sprint`/`Task` and keep the membership check (`requireProject(roles)`) that protects every nested route.
-- **Board columns and table groups come from config.** `client/src/lib/constants.js` defines statuses, priorities and types (id + color), and the server enums in `server/src/models/Task.js` must match. Change both to get a different workflow.
+- **The workflow is data, not code.** Each project stores its statuses (key, name, color, category) and the "done" category drives completion, burndown and velocity (`server/src/utils/statuses.js`, `client/src/hooks/useStatuses.js`). Priorities and types live in `client/src/lib/constants.js`.
 - **One drag & drop hook for everything.** `useContainerDnd` moves items between any containers (statuses, sprints, owners…) and returns the new order to save.
 - **Optimistic updates in one context.** `ProjectContext` updates the UI first, calls the API, and rolls back with a toast on error.
 - **i18n-first errors.** The server sends stable error codes and the client translates them, so adding a language means adding one file in `client/src/i18n/`.

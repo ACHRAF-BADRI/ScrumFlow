@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { FolderKanban, LayoutGrid, ListTodo, Menu, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
+import { FolderKanban, LayoutGrid, ListTodo, Menu, Search, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjects } from '../../context/ProjectsContext';
 import { Skeleton } from '../ui/Feedback';
@@ -10,6 +10,7 @@ import Tooltip from '../ui/Tooltip';
 import { useFavorites } from '../../hooks/useFavorites';
 import NewProjectModal from '../NewProjectModal';
 import NotificationBell from './NotificationBell';
+import CommandPalette, { SHORTCUT } from '../CommandPalette';
 import { LanguageSwitcher, ThemeToggle, UserMenu } from './Preferences';
 
 export function Logo({ className, compact }) {
@@ -143,6 +144,19 @@ export default function AppLayout() {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Ctrl/Cmd + K opens the command palette from anywhere
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const [collapsed, setCollapsed] = useCollapsedSidebar();
   const location = useLocation();
 
@@ -215,6 +229,11 @@ export default function AppLayout() {
           </button>
           <Logo className="lg:hidden" />
           <div className="ml-auto flex items-center gap-1">
+            <button type="button" onClick={() => setPaletteOpen(true)} className="btn-ghost h-9 gap-2 px-2.5 sm:border sm:border-line sm:bg-surface sm:pr-2" aria-label={t('palette.title')}>
+              <Search className="h-[18px] w-[18px]" />
+              <span className="hidden text-sm font-medium md:inline">{t('palette.search')}</span>
+              <kbd className="hidden rounded border border-line bg-surface-2 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-muted sm:inline">{SHORTCUT}</kbd>
+            </button>
             <NotificationBell />
             <LanguageSwitcher />
             <ThemeToggle />
@@ -229,6 +248,7 @@ export default function AppLayout() {
       </div>
 
       <NewProjectModal open={newProjectOpen} onClose={() => setNewProjectOpen(false)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNewProject={openNewProject} />
     </div>
   );
 }

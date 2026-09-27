@@ -14,6 +14,8 @@ import ProjectsPage from './pages/ProjectsPage';
 import AccountPage from './pages/AccountPage';
 import MyWorkPage from './pages/MyWorkPage';
 import ActivityView from './pages/views/ActivityView';
+import CalendarView from './pages/views/CalendarView';
+import RetroView from './pages/views/RetroView';
 import InvitePage from './pages/InvitePage';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordPages';
 import ProjectPage from './pages/ProjectPage';
@@ -89,6 +91,8 @@ export default function App() {
           <Route path="projects/:projectId" element={<ProjectPage />}>
             <Route index element={<TableView />} />
             <Route path="board" element={<BoardView />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="retro/:sprintId" element={<RetroView />} />
             <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><DashboardView /></Suspense>} />
             <Route path="activity" element={<ActivityView />} />
             <Route path="history" element={<HistoryView />} />

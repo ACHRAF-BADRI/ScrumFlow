@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -119,13 +120,15 @@ export function SprintModal({ open, mode, sprint, onClose }) {
 
 export function CompleteSprintModal({ open, sprint, onClose }) {
   const { t } = useTranslation();
-  const { tasks, sprints, completeSprint } = useProject();
+  const { tasks, sprints, completeSprint, project } = useProject();
+  const navigate = useNavigate();
+  const projectId = project?._id;
   const [moveTo, setMoveTo] = useState('backlog');
   const [saving, setSaving] = useState(false);
 
   const planned = useMemo(() => sprints.filter((s) => s.status === 'planned'), [sprints]);
   const sprintTasks = tasks.filter((task) => task.sprint === sprint?._id);
-  const done = sprintTasks.filter((task) => task.status === 'done').length;
+  const done = sprintTasks.filter((task) => task.completedAt).length;
   const openCount = sprintTasks.length - done;
 
   useEffect(() => {
@@ -136,7 +139,9 @@ export function CompleteSprintModal({ open, sprint, onClose }) {
     setSaving(true);
     try {
       await completeSprint(sprint._id, moveTo);
-      toast.success(t('sprint.completedToast', { name: sprint.name }));
+      toast.success(t('sprint.completedToast', { name: sprint.name }), {
+        action: { label: t('retro.open'), onClick: () => navigate(`/projects/${projectId}/retro/${sprint._id}`) },
+      });
       onClose();
     } catch (err) {
       toastError(err);

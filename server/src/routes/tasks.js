@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import Project from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
-import Task, { TASK_STATUSES } from '../models/Task.js';
+import Task from '../models/Task.js';
+import { defaultStatus, hasStatus, isDoneStatus, statusLabel } from '../utils/statuses.js';
 import { isValidId, requireProject } from '../middleware/auth.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 import { notifyAssigned, notifyMentions } from '../services/notify.js';
@@ -10,7 +11,7 @@ import Activity from '../models/Activity.js';
 
 // Mounted at /api/projects/:projectId/tasks
 const router = Router({ mergeParams: true });
-const EDITABLE = ['title', 'description', 'type', 'status', 'priority', 'points', 'assignee', 'sprint', 'dueDate', 'labels', 'order'];
+const EDITABLE = ['title', 'description', 'type', 'status', 'priority', 'points', 'assignee', 'sprint', 'epic', 'dueDate', 'labels', 'order'];
 const USER_FIELDS = 'name email avatarColor';
 
 const withRefs = (query) =>
@@ -39,6 +40,16 @@ async function validateRefs(req, data) {
     if (!sprint) throw badRequest('Invalid sprint', 'errors.badRequest');
     if (sprint.status === 'completed') throw badRequest('This sprint is already completed', 'errors.sprintCompleted');
   }
+  if (data.epic === '') data.epic = null;
+  if (data.epic) {
+    if (!isValidId(data.epic)) throw badRequest('Invalid epic', 'errors.badRequest');
+    const epic = await Task.findOne({ _id: data.epic, project: req.project._id }).select('type').lean();
+    if (!epic || epic.type !== 'epic') throw badRequest('The parent must be an epic of this project', 'errors.badEpic');
+    if (String(data.epic) === String(req.params.taskId)) throw badRequest('A task cannot be its own epic', 'errors.badEpic');
+  }
+  if (data.status !== undefined && !hasStatus(req.project, data.status)) {
+    throw badRequest('Unknown status for this project', 'errors.badStatus');
+  }
   if (Array.isArray(data.labels)) {
     data.labels = [...new Set(data.labels.map((l) => String(l).trim()).filter(Boolean))].slice(0, 10);
   }
@@ -66,9 +77,12 @@ router.post('/', requireProject(), async (req, res) => {
   );
   const last = await Task.findOne({ project: req.project._id }).sort({ order: -1 }).select('order').lean();
 
+  const status = data.status ?? defaultStatus(req.project);
   const task = await Task.create({
     order: (last?.order ?? 0) + 1,
     ...data,
+    status,
+    completedAt: isDoneStatus(req.project, status) ? new Date() : null,
     project: req.project._id,
     number: taskCounter,
     reporter: req.user._id,
@@ -90,9 +104,9 @@ router.post('/reorder', requireProject(), async (req, res) => {
     if (!isValidId(item.id)) continue;
     const update = [{ $set: { order: Number(item.order) || 0 } }];
     if (item.status !== undefined) {
-      if (!TASK_STATUSES.includes(item.status)) throw badRequest('Invalid status', 'errors.badRequest');
+      if (!hasStatus(req.project, item.status)) throw badRequest('Unknown status for this project', 'errors.badStatus');
       // Keep the original completion date of tasks that were already done (burndown accuracy)
-      const completedAt = item.status === 'done' ? { $ifNull: ['$completedAt', new Date()] } : null;
+      const completedAt = isDoneStatus(req.project, item.status) ? { $ifNull: ['$completedAt', new Date()] } : null;
       update.push({ $set: { status: item.status, completedAt } });
     }
     ops.push({ updateOne: { filter: { _id: item.id, project: req.project._id }, update } });
@@ -101,7 +115,13 @@ router.post('/reorder', requireProject(), async (req, res) => {
   for (const task of before) {
     const next = withStatus.find((i) => String(i.id) === String(task._id))?.status;
     if (next && next !== task.status) {
-      await logActivity({ project: req.project, actor: req.user, task, type: 'task.updated', data: { field: 'status', from: task.status, to: next } });
+      await logActivity({
+        project: req.project,
+        actor: req.user,
+        task,
+        type: 'task.updated',
+        data: { field: 'status', from: task.status, to: next, fromLabel: statusLabel(req.project, task.status), toLabel: statusLabel(req.project, next) },
+      });
     }
   }
   res.json({ updated: ops.length });
@@ -118,7 +138,13 @@ router.patch('/:taskId', requireProject(), async (req, res) => {
   const previousAssignee = task.assignee ? String(task.assignee) : null;
   const before = task.toObject();
   Object.assign(task, data);
+  if (task.type === 'epic') task.epic = null;
+  if ('status' in data) {
+    if (!isDoneStatus(req.project, task.status)) task.completedAt = null;
+    else if (!task.completedAt) task.completedAt = new Date();
+  }
   await task.save();
+  if (before.type === 'epic' && task.type !== 'epic') await Task.updateMany({ epic: task._id }, { epic: null });
   await logTaskChanges({ project: req.project, actor: req.user, before, after: task });
   if ('assignee' in data && data.assignee && String(data.assignee) !== previousAssignee) {
     notifyAssigned({ actor: req.user, project: req.project, task, assigneeId: data.assignee }).catch(() => {});
@@ -131,6 +157,7 @@ router.delete('/:taskId', requireProject(), async (req, res) => {
   const canDelete = ['owner', 'admin'].includes(req.role) || String(task.reporter) === String(req.user._id);
   if (!canDelete) throw forbidden('Only the reporter or a project admin can delete this task', 'errors.forbidden');
   await task.deleteOne();
+  if (task.type === 'epic') await Task.updateMany({ epic: task._id }, { epic: null });
   await logActivity({ project: req.project, actor: req.user, task, type: 'task.deleted' });
   res.status(204).end();
 });

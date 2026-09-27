@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { api, errorMessage } from '../lib/api';
-import { STATUSES } from '../lib/constants';
+import { DEFAULT_STATUSES } from '../hooks/useStatuses';
 import { Logo } from '../components/layout/AppLayout';
 import { LanguageSwitcher, ThemeToggle } from '../components/layout/Preferences';
 import { Spinner } from '../components/ui/Feedback';
@@ -38,8 +38,8 @@ function Hero() {
       </div>
       {/* Decorative mini board */}
       <div className="relative grid grid-cols-3 gap-3 rounded-2xl bg-white/10 p-4 backdrop-blur">
-        {STATUSES.filter((s) => s.id !== 'review' && s.id !== 'stuck').map((s, col) => (
-          <div key={s.id} className="space-y-2">
+        {DEFAULT_STATUSES.filter((s) => s.key !== 'review' && s.key !== 'stuck').map((s, col) => (
+          <div key={s.key} className="space-y-2">
             <div className="h-1.5 rounded-full" style={{ background: s.color }} />
             {Array.from({ length: 3 - col }, (_, i) => (
               <div key={i} className="rounded-lg bg-white/90 p-2.5">

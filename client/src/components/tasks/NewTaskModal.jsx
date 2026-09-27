@@ -6,6 +6,7 @@ import { toastError } from '../../lib/api';
 import { taskKey } from '../../lib/format';
 import { Modal } from '../ui/Modal';
 import { LabelsInput } from './TaskDrawer';
+import { EpicPicker } from './Epics';
 import { AssigneePicker, PointsPicker, PriorityPicker, SprintPicker, StatusPicker, TypePicker } from './Pickers';
 
 const blank = (defaults) => ({
@@ -17,6 +18,7 @@ const blank = (defaults) => ({
   points: 0,
   assignee: null,
   sprint: null,
+  epic: null,
   dueDate: '',
   labels: [],
   ...defaults,
@@ -92,6 +94,7 @@ export default function NewTaskModal({ open, onClose, defaults }) {
             ['task.assignee', <AssigneePicker key="assignee" value={form.assignee} onChange={set('assignee')} />],
             ['task.sprint', <SprintPicker key="sprint" value={form.sprint} onChange={set('sprint')} />],
             ['task.points', <PointsPicker key="points" value={form.points} onChange={set('points')} />],
+            ...(form.type !== 'epic' ? [['epics.epic', <EpicPicker key="epic" value={form.epic} onChange={set('epic')} />]] : []),
           ].map(([label, control]) => (
             <div key={label}>
               <span className="label">{t(label)}</span>

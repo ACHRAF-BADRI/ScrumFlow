@@ -15,7 +15,8 @@ import { badRequest, pick, unauthorized } from '../utils/httpError.js';
 
 const router = Router();
 
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 50, standardHeaders: true, legacyHeaders: false });
+// Not in automated tests, which create many accounts in a row
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 50, standardHeaders: true, legacyHeaders: false, skip: () => process.env.NODE_ENV === 'test' });
 
 router.post('/register', authLimiter, async (req, res) => {
   const { name, email, password, language } = req.body || {};

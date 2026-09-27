@@ -38,7 +38,7 @@ export function daysLeft(endDate) {
   return Math.ceil((end - Date.now()) / (24 * 60 * 60 * 1000));
 }
 
-export const isOverdue = (task) => task.dueDate && task.status !== 'done' && new Date(task.dueDate) < new Date(new Date().toDateString());
+export const isOverdue = (task) => task.dueDate && !task.completedAt && new Date(task.dueDate) < new Date(new Date().toDateString());
 
 export const initials = (name = '') =>
   name
