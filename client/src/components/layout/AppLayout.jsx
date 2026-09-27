@@ -13,12 +13,12 @@ import NotificationBell from './NotificationBell';
 import CommandPalette, { SHORTCUT } from '../CommandPalette';
 import { LanguageSwitcher, ThemeToggle, UserMenu } from './Preferences';
 
-export function Logo({ className, compact }) {
+export function Logo({ className, compact, wordmarkClassName }) {
   return (
     <Link to="/" className={clsx('group flex items-center gap-2.5', className)} aria-label="ScrumFlow">
       <LogoMark className="h-9 w-9 shrink-0 drop-shadow-[0_4px_10px_rgba(97,97,255,0.35)] transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105" />
       {!compact && (
-        <span className="whitespace-nowrap text-[1.15rem] font-extrabold tracking-[-0.03em]">
+        <span className={clsx('whitespace-nowrap text-[1.15rem] font-extrabold tracking-[-0.03em]', wordmarkClassName)}>
           Scrum
           <span className="bg-gradient-to-r from-[#8B7DFF] via-brand to-[#3B2FCB] bg-clip-text text-transparent dark:from-[#A99FFF] dark:via-[#8B7DFF] dark:to-[#6161FF]">Flow</span>
         </span>
@@ -227,7 +227,7 @@ export default function AppLayout() {
           <button type="button" className="btn-icon -ml-2 lg:hidden" onClick={() => setDrawerOpen(true)} aria-label={t('nav.menu')}>
             <Menu className="h-5 w-5" />
           </button>
-          <Logo className="lg:hidden" />
+          <Logo className="lg:hidden" wordmarkClassName="hidden sm:inline" />
           <div className="ml-auto flex items-center gap-1">
             <button type="button" onClick={() => setPaletteOpen(true)} className="btn-ghost h-9 gap-2 px-2.5 sm:border sm:border-line sm:bg-surface sm:pr-2" aria-label={t('palette.title')}>
               <Search className="h-[18px] w-[18px]" />
