@@ -1,16 +1,17 @@
 import { Trans, useTranslation } from 'react-i18next';
+import { useStatuses } from '../../hooks/useStatuses';
 import { formatDate, formatDateTime, relativeTime } from '../../lib/format';
 import { Avatar } from '../ui/Avatar';
 import Tooltip from '../ui/Tooltip';
 
 /** i18n key + values for one activity entry. */
-function describe(a, t) {
+function describe(a, t, statusMap) {
   const d = a.data ?? {};
   const base = { actor: a.actor?.name ?? a.actorName ?? t('activity.someone'), task: a.taskKey ?? '' };
   switch (a.type) {
     case 'task.updated': {
       const f = d.field;
-      if (f === 'status') return ['activity.status', { ...base, to: t(`status.${d.to}`) }];
+      if (f === 'status') return ['activity.status', { ...base, to: statusMap[d.to]?.name ?? (d.toLabel || t(`status.${d.to}`, { defaultValue: d.to })) }];
       if (f === 'priority') return ['activity.priority', { ...base, to: t(`priority.${d.to}`) }];
       if (f === 'type') return ['activity.type', { ...base, to: t(`type.${d.to}`) }];
       if (f === 'assignee') return d.to ? ['activity.assigned', { ...base, to: d.to }] : ['activity.unassigned', base];
@@ -52,7 +53,8 @@ function describe(a, t) {
  */
 export default function ActivityItem({ activity, onOpenTask, compact }) {
   const { t } = useTranslation();
-  const [key, values] = describe(activity, t);
+  const { map: statusMap } = useStatuses();
+  const [key, values] = describe(activity, t, statusMap);
   const deleted = activity.type === 'task.deleted';
 
   const TaskKey = ({ children }) =>

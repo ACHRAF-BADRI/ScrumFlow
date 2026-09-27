@@ -2,7 +2,8 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import Project, { ROLES } from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
-import Task, { TASK_PRIORITIES, TASK_STATUSES } from '../models/Task.js';
+import Task, { TASK_PRIORITIES } from '../models/Task.js';
+import { isDoneStatus, sanitizeStatuses, statusesOf } from '../utils/statuses.js';
 import User from '../models/User.js';
 import Invitation, { INVITE_DAYS, hashToken, newToken } from '../models/Invitation.js';
 import { invitationEmail } from '../emails/templates.js';
@@ -40,7 +41,8 @@ router.get('/', async (req, res) => {
         $group: {
           _id: '$project',
           total: { $sum: 1 },
-          done: { $sum: { $cond: [{ $eq: ['$status', 'done'] }, 1, 0] } },
+          // $gt null: true for a date, false when missing or null
+          done: { $sum: { $cond: [{ $gt: ['$completedAt', null] }, 1, 0] } },
         },
       },
     ]),
@@ -80,7 +82,15 @@ router.get('/:projectId', requireProject(), async (req, res) => {
 
 router.patch('/:projectId', requireProject(MANAGERS), async (req, res) => {
   Object.assign(req.project, pick(req.body, ['name', 'description', 'color', 'key']));
+  let removed = [];
+  if (req.body?.statuses !== undefined) {
+    const next = sanitizeStatuses(req.body.statuses);
+    const previous = statusesOf(req.project).map((s) => ({ key: s.key, category: s.category }));
+    removed = previous.filter((p) => !next.some((n) => n.key === p.key));
+    req.project.statuses = next;
+  }
   await req.project.save();
+  if (req.body?.statuses !== undefined) await syncTasksWithWorkflow(req.project, removed);
   await req.project.populate('members.user', MEMBER_FIELDS);
   res.json({ project: req.project });
 });
@@ -199,6 +209,26 @@ router.delete('/:projectId/members/:userId', requireProject(), async (req, res) 
 
 // ---- Dashboard statistics -----------------------------------------------
 
+/**
+ * After a workflow change: tasks of a deleted status move to the first status
+ * of the same category (or the first one), and completedAt follows each
+ * status's category.
+ */
+async function syncTasksWithWorkflow(project, removed) {
+  const statuses = statusesOf(project);
+  for (const old of removed) {
+    const target = statuses.find((s) => s.category === old.category) ?? statuses[0];
+    await Task.updateMany({ project: project._id, status: old.key }, { status: target.key });
+  }
+  for (const s of statuses) {
+    if (isDoneStatus(project, s.key)) {
+      await Task.updateMany({ project: project._id, status: s.key, completedAt: null }, { completedAt: new Date() });
+    } else {
+      await Task.updateMany({ project: project._id, status: s.key, completedAt: { $ne: null } }, { completedAt: null });
+    }
+  }
+}
+
 const DAY = 24 * 60 * 60 * 1000;
 const startOfDay = (d) => {
   const x = new Date(d);
@@ -210,11 +240,12 @@ const sumPoints = (list) => list.reduce((sum, t) => sum + (t.points || 0), 0);
 router.get('/:projectId/stats', requireProject(), async (req, res) => {
   const projectId = req.project._id;
   const [tasks, sprints] = await Promise.all([
-    Task.find({ project: projectId }).select('status priority points assignee sprint completedAt dueDate').lean(),
+    Task.find({ project: projectId }).select('status priority points assignee sprint epic type title number completedAt dueDate').lean(),
     Sprint.find({ project: projectId }).sort({ createdAt: 1 }).lean(),
   ]);
 
   const countBy = (keys, field) => Object.fromEntries(keys.map((k) => [k, tasks.filter((t) => t[field] === k).length]));
+  const statusKeys = statusesOf(req.project).map((s) => s.key);
 
   const byAssignee = {};
   for (const t of tasks) {
@@ -222,7 +253,7 @@ router.get('/:projectId/stats', requireProject(), async (req, res) => {
     byAssignee[id] ??= { total: 0, done: 0, points: 0 };
     byAssignee[id].total += 1;
     byAssignee[id].points += t.points || 0;
-    if (t.status === 'done') byAssignee[id].done += 1;
+    if (t.completedAt) byAssignee[id].done += 1;
   }
 
   const velocity = sprints
@@ -253,22 +284,40 @@ router.get('/:projectId/stats', requireProject(), async (req, res) => {
     }
   }
 
+  // Progress of each epic, from its stories
+  const epics = tasks
+    .filter((t) => t.type === 'epic')
+    .map((epic) => {
+      const stories = tasks.filter((t) => String(t.epic) === String(epic._id));
+      const doneStories = stories.filter((t) => t.completedAt);
+      return {
+        _id: epic._id,
+        key: `${req.project.key}-${epic.number}`,
+        title: epic.title,
+        total: stories.length,
+        done: doneStories.length,
+        points: sumPoints(stories),
+        donePoints: sumPoints(doneStories),
+      };
+    });
+
   const now = new Date();
-  const done = tasks.filter((t) => t.status === 'done');
+  const done = tasks.filter((t) => t.completedAt);
   res.json({
     totals: {
       tasks: tasks.length,
       done: done.length,
       points: sumPoints(tasks),
       donePoints: sumPoints(done),
-      overdue: tasks.filter((t) => t.dueDate && t.status !== 'done' && new Date(t.dueDate) < now).length,
+      overdue: tasks.filter((t) => t.dueDate && !t.completedAt && new Date(t.dueDate) < now).length,
       backlog: tasks.filter((t) => !t.sprint).length,
     },
-    byStatus: countBy(TASK_STATUSES, 'status'),
+    byStatus: countBy(statusKeys, 'status'),
     byPriority: countBy(TASK_PRIORITIES, 'priority'),
     byAssignee,
     velocity,
     burndown,
+    epics,
   });
 });
 

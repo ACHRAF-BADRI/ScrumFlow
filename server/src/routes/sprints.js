@@ -1,8 +1,10 @@
 import { Router } from 'express';
-import Sprint from '../models/Sprint.js';
+import Sprint, { RETRO_COLUMNS } from '../models/Sprint.js';
+import Project from '../models/Project.js';
+import { defaultStatus } from '../utils/statuses.js';
 import Task from '../models/Task.js';
 import { isValidId, requireProject } from '../middleware/auth.js';
-import { badRequest, notFound, pick } from '../utils/httpError.js';
+import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 import { logActivity } from '../services/activity.js';
 
 // Mounted at /api/projects/:projectId/sprints
@@ -21,7 +23,8 @@ async function loadSprint(req) {
 const sumPoints = (tasks) => tasks.reduce((sum, t) => sum + (t.points || 0), 0);
 
 router.get('/', requireProject(), async (req, res) => {
-  const sprints = await Sprint.find({ project: req.project._id }).sort({ createdAt: 1 });
+  // The retrospective is loaded on its own page
+  const sprints = await Sprint.find({ project: req.project._id }).select('-retro').sort({ createdAt: 1 });
   res.json({ sprints });
 });
 
@@ -102,18 +105,111 @@ router.post('/:sprintId/complete', requireProject(MANAGERS), async (req, res) =>
     target = next._id;
   }
 
-  const tasks = await Task.find({ sprint: sprint._id }).select('points status').lean();
-  const unfinished = tasks.filter((t) => t.status !== 'done');
+  const tasks = await Task.find({ sprint: sprint._id }).select('points status completedAt').lean();
+  const unfinished = tasks.filter((t) => !t.completedAt);
   await Task.updateMany({ _id: { $in: unfinished.map((t) => t._id) } }, { sprint: target });
 
   Object.assign(sprint, {
     status: 'completed',
     completedAt: new Date(),
-    completedPoints: sumPoints(tasks.filter((t) => t.status === 'done')),
+    completedPoints: sumPoints(tasks.filter((t) => t.completedAt)),
   });
   await sprint.save();
   await logActivity({ project: req.project, actor: req.user, type: 'sprint.completed', data: { name: sprint.name, moved: unfinished.length } });
   res.json({ sprint, moved: unfinished.length });
+});
+
+// ---- Retrospective (active and completed sprints, any member) ----------------
+
+const retroView = (sprint) =>
+  Sprint.findById(sprint._id)
+    .select('name goal status startDate endDate completedAt retro')
+    .populate('retro.author', 'name avatarColor');
+
+async function loadRetroSprint(req) {
+  const sprint = await loadSprint(req);
+  if (sprint.status === 'planned') throw badRequest('Start the sprint before its retrospective', 'errors.retroPlanned');
+  return sprint;
+}
+
+router.get('/:sprintId/retro', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  res.json({ sprint: await retroView(sprint) });
+});
+
+router.post('/:sprintId/retro', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  const text = String(req.body?.text ?? '').trim();
+  if (!RETRO_COLUMNS.includes(req.body?.column)) throw badRequest('Invalid column', 'errors.badRequest');
+  if (!text) throw badRequest('The card cannot be empty', 'errors.missingFields');
+  if (sprint.retro.length >= 200) throw badRequest('Too many cards', 'errors.badRequest');
+  sprint.retro.push({ column: req.body.column, text: text.slice(0, 300), author: req.user._id });
+  await sprint.save();
+  res.status(201).json({ sprint: await retroView(sprint) });
+});
+
+function retroItem(sprint, itemId) {
+  const item = sprint.retro.id(itemId);
+  if (!item) throw notFound('Card not found', 'errors.notFound');
+  return item;
+}
+const canEditCard = (req, item) => String(item.author) === String(req.user._id) || MANAGERS.includes(req.role);
+
+router.patch('/:sprintId/retro/:itemId', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  const item = retroItem(sprint, req.params.itemId);
+  if (req.body?.text !== undefined) {
+    if (!canEditCard(req, item)) throw forbidden();
+    const text = String(req.body.text).trim();
+    if (!text) throw badRequest('The card cannot be empty', 'errors.missingFields');
+    item.text = text.slice(0, 300);
+  }
+  if (req.body?.done !== undefined) item.done = Boolean(req.body.done);
+  await sprint.save();
+  res.json({ sprint: await retroView(sprint) });
+});
+
+// One vote per person, clicking again removes it
+router.post('/:sprintId/retro/:itemId/vote', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  const item = retroItem(sprint, req.params.itemId);
+  const me = String(req.user._id);
+  item.votes = item.votes.some((v) => String(v) === me) ? item.votes.filter((v) => String(v) !== me) : [...item.votes, req.user._id];
+  await sprint.save();
+  res.json({ sprint: await retroView(sprint) });
+});
+
+router.delete('/:sprintId/retro/:itemId', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  const item = retroItem(sprint, req.params.itemId);
+  if (!canEditCard(req, item)) throw forbidden();
+  item.deleteOne();
+  await sprint.save();
+  res.json({ sprint: await retroView(sprint) });
+});
+
+// Turn an action into a real task in the backlog
+router.post('/:sprintId/retro/:itemId/task', requireProject(), async (req, res) => {
+  const sprint = await loadRetroSprint(req);
+  const item = retroItem(sprint, req.params.itemId);
+  if (item.column !== 'actions') throw badRequest('Only actions can become tasks', 'errors.badRequest');
+  if (item.task) throw badRequest('This action is already a task', 'errors.badRequest');
+  const { taskCounter } = await Project.findByIdAndUpdate(req.project._id, { $inc: { taskCounter: 1 } }, { new: true, projection: { taskCounter: 1 } });
+  const last = await Task.findOne({ project: req.project._id }).sort({ order: -1 }).select('order').lean();
+  const task = await Task.create({
+    project: req.project._id,
+    number: taskCounter,
+    title: item.text.slice(0, 200),
+    type: 'task',
+    status: defaultStatus(req.project),
+    reporter: req.user._id,
+    order: (last?.order ?? 0) + 1,
+    labels: ['retro'],
+  });
+  item.task = task._id;
+  await sprint.save();
+  await logActivity({ project: req.project, actor: req.user, task, type: 'task.created' });
+  res.status(201).json({ sprint: await retroView(sprint), task });
 });
 
 export default router;

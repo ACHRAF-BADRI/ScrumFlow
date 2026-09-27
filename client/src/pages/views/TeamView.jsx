@@ -11,6 +11,7 @@ import { Avatar } from '../../components/ui/Avatar';
 import { RoleBadge } from '../../components/ui/Badge';
 import { useConfirm } from '../../components/ui/Confirm';
 import ProjectFields from '../../components/ProjectFields';
+import WorkflowEditor from '../../components/WorkflowEditor';
 import Tooltip from '../../components/ui/Tooltip';
 
 function InviteLink({ url, onClose }) {
@@ -293,6 +294,7 @@ export default function TeamView() {
 
       <div className="space-y-4">
         {canManage && <SettingsForm />}
+        {canManage && <WorkflowEditor />}
         {role === 'owner' && (
           <section className="card border-[#e2445c]/40 p-4 sm:p-5">
             <h3 className="text-sm font-bold text-[#e2445c]">{t('team.dangerZone')}</h3>

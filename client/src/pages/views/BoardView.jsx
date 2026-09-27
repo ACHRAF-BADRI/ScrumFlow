@@ -4,12 +4,12 @@ import clsx from 'clsx';
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarDays, CheckCircle2, MessageSquare, Plus } from 'lucide-react';
+import { CalendarDays, CheckCircle2, MessageSquare, MessagesSquare, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
 import { useContainerDnd } from '../../hooks/useContainerDnd';
 import { toastError } from '../../lib/api';
-import { STATUSES } from '../../lib/constants';
+import { useStatuses } from '../../hooks/useStatuses';
 import { daysLeft, formatDate, isOverdue, taskKey } from '../../lib/format';
 import { LabelChip, PriorityBadge, TypeIcon } from '../../components/ui/Badge';
 import { EmptyState, ProgressBar } from '../../components/ui/Feedback';
@@ -17,6 +17,7 @@ import { AssigneePicker } from '../../components/tasks/Pickers';
 import { CompleteSprintModal } from '../../components/sprints/SprintModals';
 import SprintGoal from '../../components/sprints/SprintGoal';
 import { ChecklistBadge } from '../../components/tasks/Checklist';
+import { EpicChip } from '../../components/tasks/Epics';
 import Tooltip from '../../components/ui/Tooltip';
 
 function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
@@ -46,7 +47,7 @@ function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
           </Tooltip>
         )}
       </div>
-      <p className={clsx('text-sm font-semibold leading-snug', task.status === 'done' && 'text-muted line-through decoration-muted/50')}>{task.title}</p>
+      <p className={clsx('text-sm font-semibold leading-snug', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</p>
       {task.labels?.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {task.labels.slice(0, 3).map((l) => (
@@ -56,6 +57,7 @@ function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
       )}
       <div className="mt-3 flex items-center gap-2">
         <PriorityBadge priority={task.priority} />
+        <EpicChip epicId={task.epic} className="max-w-[90px]" />
         {task.dueDate && (
           <span className={clsx('flex items-center gap-1 text-[11px] font-medium', overdue ? 'text-[#e2445c]' : 'text-muted')}>
             <CalendarDays className="h-3 w-3" />
@@ -139,24 +141,24 @@ function QuickAdd({ sprintId, status }) {
 
 function Column({ status, taskIds, byId, allTasks, disabled, sprintId }) {
   const { t } = useTranslation();
-  const { setNodeRef, isOver } = useDroppable({ id: status.id, disabled });
+  const { setNodeRef, isOver } = useDroppable({ id: status.key, disabled });
   const points = allTasks.reduce((sum, task) => sum + (task.points || 0), 0);
 
   return (
     <div className="flex w-[82vw] max-w-[300px] shrink-0 snap-start flex-col rounded-2xl bg-surface-2/70 sm:w-[272px] 2xl:w-auto 2xl:max-w-none 2xl:flex-1">
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: status.color }} />
-        <h3 className="text-sm font-bold">{t(`status.${status.id}`)}</h3>
+        <h3 className="truncate text-sm font-bold">{status.name}</h3>
         <span className="rounded-full bg-surface px-2 text-xs font-bold text-muted">{allTasks.length}</span>
         <span className="ml-auto text-[11px] font-semibold text-muted">
           {points} {t('common.points')}
         </span>
       </div>
       <div className="mx-3 mb-2 h-0.5 rounded-full" style={{ background: status.color }} />
-      <SortableContext id={status.id} items={taskIds} strategy={verticalListSortingStrategy}>
+      <SortableContext id={status.key} items={taskIds} strategy={verticalListSortingStrategy}>
         <div ref={setNodeRef} className={clsx('flex min-h-[120px] flex-1 flex-col gap-2 rounded-xl px-2 pb-2 transition-colors', isOver && 'bg-brand/5')}>
           {taskIds.map((id) => byId[id] && <SortableCard key={id} task={byId[id]} disabled={disabled} />)}
-          <QuickAdd sprintId={sprintId} status={status.id} />
+          <QuickAdd sprintId={sprintId} status={status.key} />
         </div>
       </SortableContext>
     </div>
@@ -170,7 +172,8 @@ export default function BoardView() {
   const [completing, setCompleting] = useState(false);
 
   const sprintTasks = useMemo(() => (activeSprint ? tasks.filter((task) => task.sprint === activeSprint._id) : []), [tasks, activeSprint]);
-  const containerIds = useMemo(() => STATUSES.map((s) => s.id), []);
+  const { list: statuses } = useStatuses();
+  const containerIds = useMemo(() => statuses.map((s) => s.key), [statuses]);
 
   const onMove = useCallback(
     (taskId, from, to, ordered) => moveTask(taskId, from !== to ? { status: to } : null, ordered),
@@ -205,7 +208,7 @@ export default function BoardView() {
   }
 
   const total = sprintTasks.reduce((s, task) => s + (task.points || 0), 0);
-  const done = sprintTasks.filter((task) => task.status === 'done').reduce((s, task) => s + (task.points || 0), 0);
+  const done = sprintTasks.filter((task) => task.completedAt).reduce((s, task) => s + (task.points || 0), 0);
   const remaining = daysLeft(activeSprint.endDate);
 
   return (
@@ -228,8 +231,11 @@ export default function BoardView() {
           {formatDate(activeSprint.startDate)} → {formatDate(activeSprint.endDate)} ·{' '}
           <span className={clsx(remaining < 0 && 'text-[#e2445c]')}>{remaining >= 0 ? t('sprint.daysLeft', { count: remaining }) : t('sprint.ended')}</span>
         </span>
+        <Link to={`../retro/${activeSprint._id}`} relative="path" className="btn-ghost ml-auto">
+          <MessagesSquare className="h-4 w-4" /> {t('retro.open')}
+        </Link>
         {canManage && (
-          <button type="button" className="btn-secondary ml-auto" onClick={() => setCompleting(true)}>
+          <button type="button" className="btn-secondary" onClick={() => setCompleting(true)}>
             <CheckCircle2 className="h-4 w-4" /> {t('sprint.complete')}
           </button>
         )}
@@ -238,13 +244,13 @@ export default function BoardView() {
 
       <DndContext {...handlers}>
         <div className="flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-6 sm:scroll-px-6 sm:px-6">
-          {STATUSES.map((status) => (
+          {statuses.map((status) => (
             <Column
-              key={status.id}
+              key={status.key}
               status={status}
               byId={byId}
-              taskIds={(columns[status.id] ?? []).filter((id) => visible.has(id))}
-              allTasks={sprintTasks.filter((task) => task.status === status.id)}
+              taskIds={(columns[status.key] ?? []).filter((id) => visible.has(id))}
+              allTasks={sprintTasks.filter((task) => task.status === status.key)}
               disabled={filtersActive}
               sprintId={activeSprint._id}
             />

@@ -48,7 +48,7 @@ function Stat({ icon: Icon, color, label, value }) {
 }
 
 function TaskRow({ task, project, onStatus, onOpen }) {
-  const overdue = bucketOf(task) === 'overdue' && task.status !== 'done';
+  const overdue = bucketOf(task) === 'overdue' && !task.completedAt;
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition hover:bg-surface-2/60 sm:flex-nowrap sm:px-5">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
@@ -56,7 +56,7 @@ function TaskRow({ task, project, onStatus, onOpen }) {
         <span className="shrink-0 font-mono text-[11px] font-semibold text-muted">
           {project?.key}-{task.number}
         </span>
-        <span className={clsx('truncate text-sm font-medium hover:text-brand', task.status === 'done' && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
+        <span className={clsx('truncate text-sm font-medium hover:text-brand', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
       </button>
       <div className="flex shrink-0 items-center gap-2">
         <ChecklistBadge checklist={task.checklist} />
@@ -68,7 +68,7 @@ function TaskRow({ task, project, onStatus, onOpen }) {
           <PriorityBadge priority={task.priority} />
         </span>
         {task.dueDate && <span className={clsx('w-16 text-right text-xs', overdue ? 'font-semibold text-[#e2445c]' : 'text-muted')}>{formatDate(task.dueDate)}</span>}
-        <StatusPicker variant="badge" value={task.status} onChange={onStatus} />
+        <StatusPicker variant="badge" value={task.status} onChange={onStatus} statuses={project?.statuses} />
       </div>
     </li>
   );
@@ -105,12 +105,13 @@ export default function MyWorkPage() {
   const done = filtered(data.done);
 
   const changeStatus = async (task, status) => {
-    // Optimistic: move it between "To do" and "Done" right away
+    // Optimistic: move it between "To do" and "Done" right away (done = status in the "done" category)
+    const isDone = (projectById[String(task.project)]?.statuses ?? []).some((s) => s.key === status && s.category === 'done');
     setData((d) => {
-      const updated = { ...task, status, completedAt: status === 'done' ? new Date().toISOString() : null };
+      const updated = { ...task, status, completedAt: isDone ? task.completedAt ?? new Date().toISOString() : null };
       const openList = d.open.filter((x) => x._id !== task._id);
       const doneList = d.done.filter((x) => x._id !== task._id);
-      return status === 'done' ? { ...d, open: openList, done: [updated, ...doneList] } : { ...d, open: [...openList, updated], done: doneList };
+      return isDone ? { ...d, open: openList, done: [updated, ...doneList] } : { ...d, open: [...openList, updated], done: doneList };
     });
     try {
       await api.patch(`/projects/${task.project}/tasks/${task._id}`, { status });

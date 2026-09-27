@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Activity, Filter, History, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
+import { Activity, CalendarDays, Filter, History, Zap, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ProjectProvider, useProject } from '../context/ProjectContext';
@@ -10,6 +10,7 @@ import { Avatar, AvatarStack } from '../components/ui/Avatar';
 import { EmptyState, PageLoader } from '../components/ui/Feedback';
 import { OptionList, Popover } from '../components/ui/Popover';
 import TaskDrawer from '../components/tasks/TaskDrawer';
+import { useEpics } from '../components/tasks/Epics';
 import { useAutoTour } from '../components/tour/TourProvider';
 import Tooltip from '../components/ui/Tooltip';
 import NewTaskModal from '../components/tasks/NewTaskModal';
@@ -17,6 +18,7 @@ import NewTaskModal from '../components/tasks/NewTaskModal';
 const TABS = [
   { to: '', end: true, label: 'views.table', icon: Table2 },
   { to: 'board', label: 'views.board', icon: KanbanSquare, tour: 'tab-board' },
+  { to: 'calendar', label: 'views.calendar', icon: CalendarDays },
   { to: 'dashboard', label: 'views.dashboard', icon: LayoutDashboard },
   { to: 'activity', label: 'views.activity', icon: Activity },
   { to: 'history', label: 'views.history', icon: History },
@@ -27,7 +29,8 @@ function Filters({ filters, setFilters }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { members, memberById } = useProject();
-  const active = filters.search || filters.assignee;
+  const active = filters.search || filters.assignee || filters.epic;
+  const { epics, byId: epicById } = useEpics();
   const selected = filters.assignee === 'unassigned' ? null : memberById[filters.assignee];
 
   const options = [
@@ -63,8 +66,28 @@ function Filters({ filters, setFilters }) {
       >
         {({ close }) => <OptionList options={options} value={filters.assignee} onSelect={(assignee) => setFilters((f) => ({ ...f, assignee }))} close={close} />}
       </Popover>
+      {epics.length > 0 && (
+        <Popover
+          width={260}
+          trigger={({ toggle, ref }) => (
+            <button ref={ref} type="button" onClick={toggle} className={clsx('btn-secondary h-9 max-w-[200px]', filters.epic && 'border-[#a25ddc] text-[#a25ddc]')}>
+              <Zap className="h-4 w-4 shrink-0" />
+              <span className="hidden truncate sm:inline">{filters.epic ? epicById[filters.epic]?.title : t('epics.filter')}</span>
+            </button>
+          )}
+        >
+          {({ close }) => (
+            <OptionList
+              options={[{ value: null, label: t('epics.all') }, ...epics.map((e) => ({ value: e._id, label: e.title }))]}
+              value={filters.epic}
+              onSelect={(epic) => setFilters((f) => ({ ...f, epic }))}
+              close={close}
+            />
+          )}
+        </Popover>
+      )}
       {active && (
-        <button type="button" className="btn-ghost h-9 px-2.5" onClick={() => setFilters({ search: '', assignee: null })}>
+        <button type="button" className="btn-ghost h-9 px-2.5" onClick={() => setFilters({ search: '', assignee: null, epic: null })}>
           <X className="h-4 w-4" />
           <span className="hidden sm:inline">{t('common.clearFilters')}</span>
         </button>
@@ -82,10 +105,22 @@ function ProjectShell() {
   // The project tour explains the table view, so only start it there
   useAutoTour('project', Boolean(project) && !/\/(board|dashboard|activity|history|team)$/.test(location.pathname));
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState({ search: '', assignee: null });
+  const [filters, setFilters] = useState({ search: '', assignee: null, epic: null });
   const [newTask, setNewTask] = useState(null); // null = closed, object = defaults
 
   const openTaskId = searchParams.get('task');
+  // "New task" from the command palette arrives as ?new=1
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return;
+    setNewTask({});
+    setSearchParams(
+      (params) => {
+        params.delete('new');
+        return params;
+      },
+      { replace: true }
+    );
+  }, [searchParams, setSearchParams]);
   const openTask = useCallback(
     (id) =>
       setSearchParams((params) => {
@@ -107,6 +142,7 @@ function ProjectShell() {
     (list) => {
       const q = filters.search.trim().toLowerCase();
       return list.filter((task) => {
+        if (filters.epic && task.epic !== filters.epic && task._id !== filters.epic) return false;
         if (filters.assignee === 'unassigned' && task.assignee) return false;
         if (filters.assignee && filters.assignee !== 'unassigned' && task.assignee?._id !== filters.assignee) return false;
         if (!q) return true;
@@ -123,8 +159,8 @@ function ProjectShell() {
   const outletContext = useMemo(
     () => ({
       filterTasks,
-      filtersActive: Boolean(filters.search || filters.assignee),
-      clearFilters: () => setFilters({ search: '', assignee: null }),
+      filtersActive: Boolean(filters.search || filters.assignee || filters.epic),
+      clearFilters: () => setFilters({ search: '', assignee: null, epic: null }),
       openTask,
       openNewTask: (defaults = {}) => setNewTask(defaults),
     }),

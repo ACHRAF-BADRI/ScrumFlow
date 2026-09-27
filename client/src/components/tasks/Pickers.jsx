@@ -1,7 +1,8 @@
 import clsx from 'clsx';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { PRIORITIES, PRIORITY_MAP, STATUSES, STATUS_MAP, STORY_POINTS, TYPES } from '../../lib/constants';
+import { PRIORITIES, PRIORITY_MAP, STORY_POINTS, TYPES } from '../../lib/constants';
+import { useStatuses } from '../../hooks/useStatuses';
 import { Avatar } from '../ui/Avatar';
 import { PriorityBadge, StatusBadge, TypeBadge, TypeIcon } from '../ui/Badge';
 import { OptionList, Popover } from '../ui/Popover';
@@ -42,42 +43,43 @@ function FieldButton({ open, toggle, innerRef, children, disabled }) {
  * variant "field": labelled button (drawer / forms)
  * variant "badge": compact pill (cards)
  */
-export function StatusPicker({ value, onChange, variant = 'field', disabled }) {
-  const { t } = useTranslation();
-  const color = STATUS_MAP[value]?.color;
+export function StatusPicker({ value, onChange, variant = 'field', disabled, statuses }) {
+  const { list, map } = useStatuses(statuses);
+  const current = map[value];
+  const color = current?.color ?? '#a1a3b8';
   return (
     <Popover
       width={200}
       trigger={({ open, toggle, ref }) =>
         variant === 'cell' ? (
           <button ref={ref} type="button" onClick={toggle} className="cell-solid" style={{ '--c': color }} disabled={disabled}>
-            {t(`status.${value}`)}
+            {current?.name ?? value}
           </button>
         ) : variant === 'badge' ? (
           <button ref={ref} type="button" onClick={toggle} disabled={disabled}>
-            <StatusBadge status={value} />
+            <StatusBadge status={value} statuses={statuses} />
           </button>
         ) : (
           <FieldButton open={open} toggle={toggle} innerRef={ref} disabled={disabled}>
-            <StatusBadge status={value} />
+            <StatusBadge status={value} statuses={statuses} />
           </FieldButton>
         )
       }
     >
       {({ close }) => (
         <div className="grid gap-1">
-          {STATUSES.map((s) => (
+          {list.map((s) => (
             <button
-              key={s.id}
+              key={s.key}
               type="button"
-              className={clsx('rounded-md px-3 py-2 text-center text-[13px] font-semibold text-white transition hover:brightness-95', value === s.id && 'ring-2 ring-offset-2 ring-offset-surface')}
+              className={clsx('truncate rounded-md px-3 py-2 text-center text-[13px] font-semibold text-white transition hover:brightness-95', value === s.key && 'ring-2 ring-offset-2 ring-offset-surface')}
               style={{ background: s.color, '--tw-ring-color': s.color }}
               onClick={() => {
-                if (s.id !== value) onChange(s.id);
+                if (s.key !== value) onChange(s.key);
                 close();
               }}
             >
-              {t(`status.${s.id}`)}
+              {s.name}
             </button>
           ))}
         </div>
