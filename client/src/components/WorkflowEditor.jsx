@@ -77,61 +77,65 @@ export default function WorkflowEditor() {
 
       <ul className="space-y-2">
         {rows.map((row, index) => (
-          <li key={row.key ?? `new-${index}`} className="flex items-center gap-2 rounded-xl border border-line p-2">
-            <Popover
-              width={188}
-              trigger={({ toggle, ref }) => (
-                <button ref={ref} type="button" onClick={toggle} className="h-8 w-8 shrink-0 rounded-lg ring-1 ring-black/10" style={{ background: row.color }} aria-label={t('projects.color')} />
-              )}
-            >
-              {({ close }) => (
-                <div className="grid grid-cols-6 gap-1.5 p-1">
-                  {COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => {
-                        set(index, { color });
-                        close();
-                      }}
-                      className="flex h-6 w-6 items-center justify-center rounded-md"
-                      style={{ background: color }}
-                      aria-label={color}
-                    >
-                      {row.color === color && <Check className="h-3.5 w-3.5 text-white" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </Popover>
-            <input
-              className="input h-8 min-w-0 flex-1 py-0"
-              value={row.label}
-              maxLength={30}
-              placeholder={DEFAULT_KEYS.includes(row.key) ? t(`status.${row.key}`) : t('workflow.namePlaceholder')}
-              onChange={(e) => set(index, { label: e.target.value })}
-              aria-label={t('workflow.name')}
-            />
-            <select className="input h-8 w-auto py-0 text-xs" value={row.category} onChange={(e) => set(index, { category: e.target.value })} aria-label={t('workflow.category')}>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {t(`workflow.cat.${c}`)}
-                </option>
-              ))}
-            </select>
-            <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted sm:inline">{t('workflow.tasks', { count: counts[row.key] ?? 0 })}</span>
-            <div className="flex shrink-0">
-              <button type="button" className="btn-icon h-8 w-7" disabled={index === 0} onClick={() => move(index, -1)} aria-label={t('workflow.up')}>
-                <ArrowUp className="h-4 w-4" />
-              </button>
-              <button type="button" className="btn-icon h-8 w-7" disabled={index === rows.length - 1} onClick={() => move(index, 1)} aria-label={t('workflow.down')}>
-                <ArrowDown className="h-4 w-4" />
-              </button>
-              <Tooltip label={t('common.delete')}>
-                <button type="button" className="btn-icon h-8 w-7 hover:text-[#e2445c]" disabled={rows.length <= 2} onClick={() => remove(index)}>
-                  <Trash2 className="h-4 w-4" />
+          <li key={row.key ?? `new-${index}`} className="flex flex-wrap items-center gap-2 rounded-xl border border-line p-2">
+            <div className="flex min-w-[12rem] flex-1 items-center gap-2">
+              <Popover
+                width={188}
+                trigger={({ toggle, ref }) => (
+                  <button ref={ref} type="button" onClick={toggle} className="h-8 w-8 shrink-0 rounded-lg ring-1 ring-black/10" style={{ background: row.color }} aria-label={t('projects.color')} />
+                )}
+              >
+                {({ close }) => (
+                  <div className="grid grid-cols-6 gap-1.5 p-1">
+                    {COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => {
+                          set(index, { color });
+                          close();
+                        }}
+                        className="flex h-6 w-6 items-center justify-center rounded-md"
+                        style={{ background: color }}
+                        aria-label={color}
+                      >
+                        {row.color === color && <Check className="h-3.5 w-3.5 text-white" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </Popover>
+              <input
+                className="input h-8 min-w-0 flex-1 py-0"
+                value={row.label}
+                maxLength={30}
+                placeholder={DEFAULT_KEYS.includes(row.key) ? t(`status.${row.key}`) : t('workflow.namePlaceholder')}
+                onChange={(e) => set(index, { label: e.target.value })}
+                aria-label={t('workflow.name')}
+              />
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <select className="input h-8 w-auto py-0 text-xs" value={row.category} onChange={(e) => set(index, { category: e.target.value })} aria-label={t('workflow.category')}>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {t(`workflow.cat.${c}`)}
+                  </option>
+                ))}
+              </select>
+              <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted sm:inline">{t('workflow.tasks', { count: counts[row.key] ?? 0 })}</span>
+              <div className="flex shrink-0">
+                <button type="button" className="btn-icon h-8 w-7" disabled={index === 0} onClick={() => move(index, -1)} aria-label={t('workflow.up')}>
+                  <ArrowUp className="h-4 w-4" />
                 </button>
-              </Tooltip>
+                <button type="button" className="btn-icon h-8 w-7" disabled={index === rows.length - 1} onClick={() => move(index, 1)} aria-label={t('workflow.down')}>
+                  <ArrowDown className="h-4 w-4" />
+                </button>
+                <Tooltip label={t('common.delete')}>
+                  <button type="button" className="btn-icon h-8 w-7 hover:text-[#e2445c]" disabled={rows.length <= 2} onClick={() => remove(index)}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              </div>
             </div>
           </li>
         ))}

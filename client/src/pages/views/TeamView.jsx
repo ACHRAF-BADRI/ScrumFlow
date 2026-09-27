@@ -290,11 +290,11 @@ export default function TeamView() {
         </section>
         {canManage && <InviteForm onInvited={() => setInvitesKey((k) => k + 1)} />}
         {canManage && <PendingInvitations reloadKey={invitesKey} />}
+        {canManage && <WorkflowEditor />}
       </div>
 
       <div className="space-y-4">
         {canManage && <SettingsForm />}
-        {canManage && <WorkflowEditor />}
         {role === 'owner' && (
           <section className="card border-[#e2445c]/40 p-4 sm:p-5">
             <h3 className="text-sm font-bold text-[#e2445c]">{t('team.dangerZone')}</h3>
