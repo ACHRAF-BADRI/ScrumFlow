@@ -3,10 +3,14 @@
  * small helpers. Emails are disabled (no Resend key) and realtime is a no-op.
  */
 import { after, before } from 'node:test';
+import crypto from 'node:crypto';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
 process.env.NODE_ENV = 'test';
-process.env.JWT_SECRET = 'test-secret';
+// Generated for each run: no credential is written in the code
+process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+export const PASSWORD = `pw-${crypto.randomUUID()}`;
+export const NEW_PASSWORD = `pw-${crypto.randomUUID()}`;
 process.env.MONGODB_URI = 'mongodb://placeholder'; // replaced below, config only checks it exists
 process.env.RESEND_API_KEY = '';
 process.env.CLIENT_URL = 'http://localhost:5173';
@@ -34,7 +38,7 @@ let counter = 0;
 /** Creates an account and returns { token, user, auth } where auth is the header value. */
 export async function signUp(name = 'User') {
   counter += 1;
-  const res = await request.post('/api/auth/register').send({ name, email: `u${counter}.${Date.now()}@test.io`, password: 'secret123' });
+  const res = await request.post('/api/auth/register').send({ name, email: `u${counter}.${Date.now()}@test.io`, password: PASSWORD });
   if (res.status !== 201) throw new Error(`sign up failed: ${res.status} ${JSON.stringify(res.body)}`);
   return { ...res.body, auth: `Bearer ${res.body.token}` };
 }

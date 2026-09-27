@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { api, request, signUp } from './helpers.js';
+import { NEW_PASSWORD, PASSWORD, api, request, signUp } from './helpers.js';
 
 describe('auth and account', () => {
   test('sign up, sign in and read the profile', async () => {
-    const res = await request.post('/api/auth/register').send({ name: 'Nora', email: 'nora@test.io', password: 'secret123' });
+    const res = await request.post('/api/auth/register').send({ name: 'Nora', email: 'nora@test.io', password: PASSWORD });
     assert.equal(res.status, 201);
     assert.ok(res.body.token);
     assert.equal(res.body.user.password, undefined, 'the password hash is never returned');
 
-    const login = await request.post('/api/auth/login').send({ email: 'NORA@test.io', password: 'secret123' });
+    const login = await request.post('/api/auth/login').send({ email: 'NORA@test.io', password: PASSWORD });
     assert.equal(login.status, 200, 'email is case insensitive');
 
     const me = await request.get('/api/auth/me').set('Authorization', `Bearer ${login.body.token}`);
@@ -20,7 +20,7 @@ describe('auth and account', () => {
     const bad = await request.post('/api/auth/login').send({ email: 'nora@test.io', password: 'nope' });
     assert.equal(bad.status, 401);
     assert.equal(bad.body.code, 'errors.invalidCredentials');
-    const dup = await request.post('/api/auth/register').send({ name: 'X', email: 'nora@test.io', password: 'secret123' });
+    const dup = await request.post('/api/auth/register').send({ name: 'X', email: 'nora@test.io', password: PASSWORD });
     assert.equal(dup.body.code, 'errors.emailTaken');
   });
 
@@ -30,12 +30,12 @@ describe('auth and account', () => {
 
   test('changing the password checks the current one (400, not 401, so the session stays)', async () => {
     const user = await signUp('Tom');
-    const wrong = await api(user).post('/api/auth/me/password').send({ currentPassword: 'nope', newPassword: 'another1' });
+    const wrong = await api(user).post('/api/auth/me/password').send({ currentPassword: 'nope', newPassword: NEW_PASSWORD });
     assert.equal(wrong.status, 400);
     assert.equal(wrong.body.code, 'errors.wrongPassword');
-    const ok = await api(user).post('/api/auth/me/password').send({ currentPassword: 'secret123', newPassword: 'another1' });
+    const ok = await api(user).post('/api/auth/me/password').send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
     assert.equal(ok.status, 200);
-    const login = await request.post('/api/auth/login').send({ email: user.user.email, password: 'another1' });
+    const login = await request.post('/api/auth/login').send({ email: user.user.email, password: NEW_PASSWORD });
     assert.equal(login.status, 200);
   });
 
@@ -44,7 +44,7 @@ describe('auth and account', () => {
     const user = await signUp('Lea');
     const known = await request.post('/api/auth/forgot-password').send({ email: user.user.email });
     assert.deepEqual(unknown.body, known.body);
-    const invalid = await request.post('/api/auth/reset-password').send({ token: 'nope', password: 'brandnew1' });
+    const invalid = await request.post('/api/auth/reset-password').send({ token: 'nope', password: NEW_PASSWORD });
     assert.equal(invalid.body.code, 'errors.resetInvalid');
   });
 
