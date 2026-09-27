@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useProjects } from '../context/ProjectsContext';
-import { errorMessage } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
 import { PROJECT_COLORS } from '../lib/constants';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
@@ -25,6 +25,31 @@ function Section({ icon: Icon, title, text, children, danger }) {
       </div>
       {children}
     </section>
+  );
+}
+
+/** "Forgot it?" next to a current password field: emails a reset link to the signed-in user. */
+function ForgotCurrentPassword() {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const [state, setState] = useState('idle'); // idle | sending | sent
+
+  const send = async () => {
+    setState('sending');
+    try {
+      await api.post('/auth/forgot-password', { email: user.email });
+      setState('sent');
+      toast.success(t('account.resetSent', { email: user.email }));
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setState('idle');
+    }
+  };
+
+  return (
+    <button type="button" onClick={send} disabled={state !== 'idle'} className="mb-1.5 text-xs font-semibold text-brand hover:underline disabled:cursor-default disabled:text-muted disabled:no-underline">
+      {state === 'sent' ? t('account.resetSentShort') : t('account.forgotCurrent')}
+    </button>
   );
 }
 
@@ -107,9 +132,12 @@ function ProfileSection() {
 
         {emailChanged && (
           <div className="rounded-xl border border-brand/30 bg-brand/5 p-4">
-            <label className="label" htmlFor="account-email-password">
-              {t('account.currentPassword')}
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label className="label" htmlFor="account-email-password">
+                {t('account.currentPassword')}
+              </label>
+              <ForgotCurrentPassword />
+            </div>
             <p className="mb-2 text-xs text-muted">{t('account.emailPasswordHint')}</p>
             <PasswordInput id="account-email-password" value={currentPassword} onChange={setCurrentPassword} autoComplete="current-password" />
           </div>
@@ -209,9 +237,12 @@ function PasswordSection() {
     <Section icon={KeyRound} title={t('account.password')} text={t('account.passwordText')}>
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label className="label" htmlFor="pw-current">
-            {t('account.currentPassword')}
-          </label>
+          <div className="flex items-center justify-between gap-3">
+            <label className="label" htmlFor="pw-current">
+              {t('account.currentPassword')}
+            </label>
+            <ForgotCurrentPassword />
+          </div>
           <PasswordInput id="pw-current" value={form.current} onChange={(v) => setForm((f) => ({ ...f, current: v }))} autoComplete="current-password" />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
