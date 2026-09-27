@@ -46,8 +46,10 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Table view**: tasks grouped by sprint and backlog. Status, priority, assignee, points and due date are edited directly in the row. Each group shows a status bar and its total points. Drag tasks between groups to plan sprints.
 - **Board**: the active sprint by status, with drag & drop, quick add, sprint goal, progress and days left
 - **Sprints**: create, start (goal and dates), complete (choose where open tasks go). Completed sprints can't be deleted, so the team's velocity history stays accurate.
+- **Activity log**: every change in the project (status, assignee, points, checklist, sprints, members…) as a timeline grouped by day, filterable by person, updated live
+- **My work**: all the tasks assigned to you in every project, grouped by due date (overdue, today, this week, later), with a project filter and inline status change
 - **History**: every completed sprint with its dates, goal, committed and delivered points, completion rate and delivered tasks, plus the team's average velocity and commitment reliability
-- **Task details**: a side panel with its own shareable link (`?task=…`), description, labels and comments with **@mentions**
+- **Task details**: a side panel with its own shareable link (`?task=…`), description, labels, a **checklist** of subtasks (progress shown on table rows and board cards), comments with **@mentions**, and the task's **history**
 - **Dashboard**: key numbers, sprint burndown, velocity, tasks by status and team workload
 - **Search & filters**: by keyword, task key, label or person ("My tasks")
 - **Interface**: colored status badges, toasts, themed tooltips, illustrated empty states, confirmation dialogs, collapsible sidebar (`Ctrl/⌘ + B`) and a mobile menu
@@ -78,10 +80,10 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │       ├── context/      Auth, Theme, Projects, Project (data + optimistic mutations)
 │       ├── hooks/        useContainerDnd (shared drag & drop logic)
 │       ├── i18n/         en.js, fr.js
-│       └── pages/        Auth, Projects, Project + views/ (Table, Board, Dashboard, History, Team)
+│       └── pages/        Auth, Projects, My work, Account, Project + views/ (Table, Board, Dashboard, Activity, History, Team)
 ├── server/          Express API (Render)
 │   └── src/
-│       ├── models/       User, Project, Sprint, Task
+│       ├── models/       User, Project, Sprint, Task, Invitation, Notification, Activity
 │       ├── routes/       auth, projects (+members, stats), sprints, tasks
 │       └── seed.js       sample data for local development
 ├── netlify.toml
@@ -149,6 +151,9 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | GET/PATCH/DELETE | `/projects/:id/tasks/:taskId` | Task CRUD |
 | POST | `/projects/:id/tasks/reorder` | Bulk order/status after drag & drop |
 | POST/DELETE | `/projects/:id/tasks/:taskId/comments[/:commentId]` | Comments (`@Full Name` emails that member) |
+| POST/PATCH/DELETE | `/projects/:id/tasks/:taskId/checklist[/:itemId]` | Checklist items (add, rename, check, delete) |
+| GET | `/projects/:id/activity` · `/projects/:id/tasks/:taskId/activity` | Activity log (`?before=` for older, `?actor=`) / one task's history |
+| GET | `/me/tasks` | My work (`?status=done` for the last 14 days) |
 | GET/DELETE | `/projects/:id/invitations[/:invitationId]` | Pending invitations (admin) |
 | GET · POST | `/invitations/:token` · `/invitations/:token/accept` | Public invitation details / accept |
 | POST | `/auth/forgot-password` · `/auth/reset-password` | Email a reset link / choose a new password |

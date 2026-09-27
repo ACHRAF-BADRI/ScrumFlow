@@ -222,6 +222,42 @@ export function ProjectProvider({ projectId, children }) {
         }
       },
 
+      // ---- Checklist (subtasks) ----
+      async addChecklistItem(taskId, text) {
+        const { data } = await guarded(() => api.post(`${base}/tasks/${taskId}/checklist`, { text }));
+        replaceTask(data.task);
+      },
+
+      async updateChecklistItem(taskId, itemId, changes) {
+        const previous = tasksRef.current.find((t) => t._id === taskId);
+        // Optimistic: checking a box must feel instant
+        if (previous) {
+          replaceTask({ ...previous, checklist: previous.checklist.map((i) => (i._id === itemId ? { ...i, ...changes } : i)) });
+        }
+        try {
+          const { data } = await guarded(() => api.patch(`${base}/tasks/${taskId}/checklist/${itemId}`, changes));
+          replaceTask(data.task);
+        } catch (err) {
+          if (previous) replaceTask(previous);
+          toastError(err);
+        }
+      },
+
+      async removeChecklistItem(taskId, itemId) {
+        const previous = tasksRef.current.find((t) => t._id === taskId);
+        if (previous) replaceTask({ ...previous, checklist: previous.checklist.filter((i) => i._id !== itemId) });
+        try {
+          const { data } = await guarded(() => api.delete(`${base}/tasks/${taskId}/checklist/${itemId}`));
+          replaceTask(data.task);
+        } catch (err) {
+          if (previous) replaceTask(previous);
+          toastError(err);
+        }
+      },
+
+      loadActivity: (params = {}) => api.get(`${base}/activity`, { params }).then(({ data }) => data),
+      loadTaskActivity: (taskId) => api.get(`${base}/tasks/${taskId}/activity`).then(({ data }) => data.activity),
+
       async addComment(taskId, text) {
         const { data } = await guarded(() => api.post(`${base}/tasks/${taskId}/comments`, { text }));
         replaceTask(data.task);

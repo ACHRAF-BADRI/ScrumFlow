@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import clsx from 'clsx';
 import { CalendarDays, Link2, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +13,8 @@ import { useConfirm } from '../ui/Confirm';
 import { Drawer } from '../ui/Modal';
 import { EmptyState } from '../ui/Feedback';
 import { CommentText, MentionTextarea } from './Mentions';
+import Checklist from './Checklist';
+import ActivityItem from '../activity/ActivityItem';
 import Tooltip from '../ui/Tooltip';
 import { AssigneePicker, PointsPicker, PriorityPicker, SprintPicker, StatusPicker, TypePicker } from './Pickers';
 
@@ -137,6 +140,35 @@ function Comments({ task }) {
   );
 }
 
+function TaskHistory({ task }) {
+  const { t } = useTranslation();
+  const { loadTaskActivity } = useProject();
+  const [items, setItems] = useState(null);
+
+  // Reload when the task changes (edits, checklist, comments)
+  useEffect(() => {
+    let cancelled = false;
+    loadTaskActivity(task._id)
+      .then((list) => !cancelled && setItems(list))
+      .catch(() => !cancelled && setItems([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [loadTaskActivity, task._id, task.updatedAt]);
+
+  if (items === null) return <p className="py-6 text-center text-sm text-muted">{t('common.loading')}</p>;
+  if (items.length === 0) return <p className="py-6 text-center text-sm text-muted">{t('activity.emptyTask')}</p>;
+  return (
+    <ol className="space-y-4">
+      {items.map((item) => (
+        <li key={item._id}>
+          <ActivityItem activity={item} compact />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 export default function TaskDrawer({ taskId, onClose }) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -145,6 +177,7 @@ export default function TaskDrawer({ taskId, onClose }) {
   const task = tasks.find((x) => x._id === taskId);
 
   const [title, setTitle] = useState('');
+  const [panel, setPanel] = useState('updates');
   const [description, setDescription] = useState('');
   useEffect(() => {
     setTitle(task?.title ?? '');
@@ -262,6 +295,8 @@ export default function TaskDrawer({ taskId, onClose }) {
           />
         </div>
 
+        <Checklist task={task} />
+
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
           <span className="flex items-center gap-1.5">
             {t('task.reporter')}: <Avatar user={task.reporter} size="xs" /> {task.reporter?.name}
@@ -272,10 +307,24 @@ export default function TaskDrawer({ taskId, onClose }) {
         </p>
 
         <div className="border-t border-line pt-5">
-          <h3 className="mb-3 text-sm font-bold">
-            {t('task.activity')} <span className="text-muted">({task.comments?.length ?? 0})</span>
-          </h3>
-          <Comments task={task} />
+          <div className="mb-3 flex gap-1 rounded-lg bg-surface-2 p-1" role="tablist">
+            {[
+              ['updates', `${t('task.activity')} (${task.comments?.length ?? 0})`],
+              ['history', t('activity.history')],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={panel === id}
+                onClick={() => setPanel(id)}
+                className={clsx('flex-1 rounded-md px-3 py-1.5 text-sm font-semibold transition', panel === id ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {panel === 'updates' ? <Comments task={task} /> : <TaskHistory task={task} />}
         </div>
       </div>
     </Drawer>
