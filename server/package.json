@@ -2,6 +2,7 @@
   "name": "scrumflow-server",
   "version": "1.0.0",
   "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
   "author": "ACHRAF EL BADRI",
   "description": "ScrumFlow REST API (Express + MongoDB)",
   "main": "src/index.js",
