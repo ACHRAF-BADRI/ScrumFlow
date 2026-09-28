@@ -231,6 +231,16 @@ The same structure works for other work-management tools (bug tracker, content c
 - **Optimistic updates in one context.** `ProjectContext` updates the UI first, calls the API, and rolls back with a toast on error.
 - **i18n-first errors.** The server sends stable error codes and the client translates them, so adding a language means adding one file in `client/src/i18n/`.
 
+## License
+
+ScrumFlow is **source available** under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+- **Free for noncommercial use:** personal projects, learning, school and university work, research, charities and other noncommercial organizations can read, run, modify and share it.
+- **Not for commercial use:** selling it, offering it as a paid or hosted service, or using it inside a company for business purposes needs a separate commercial license. Contact **ACHRAF EL BADRI** through [github.com/ACHRAF-BADRI](https://github.com/ACHRAF-BADRI).
+- The official hosted version is [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app).
+
+Copyright (c) 2026 ACHRAF EL BADRI. Anyone sharing the code must keep the `Required Notice` line at the top of the [LICENSE](LICENSE) file.
+
 ## Author
 
 **ACHRAF EL BADRI** · [github.com/ACHRAF-BADRI](https://github.com/ACHRAF-BADRI)
