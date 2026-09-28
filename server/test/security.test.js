@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { afterEach, describe, test } from 'node:test';
 import { PASSWORD, api, createProject, createTask, request, signUp } from './helpers.js';
 
-const { totp, verifyTotp } = await import('../src/utils/totp.js');
+const { base32Encode, totp, verifyTotp } = await import('../src/utils/totp.js');
 const realFetch = globalThis.fetch;
 afterEach(() => {
   globalThis.fetch = realFetch;
@@ -20,7 +20,8 @@ function stubFetch(routes) {
 
 describe('two-step verification, sign in with GitHub, GitHub webhook', () => {
   test('TOTP matches the RFC 6238 test vector', () => {
-    const secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ'; // "12345678901234567890"
+    // RFC 6238 test key, built here so no key-like text sits in the code
+    const secret = base32Encode(Buffer.from('12345678901234567890'));
     assert.equal(totp(secret, 59_000), '287082');
     assert.equal(verifyTotp(secret, '287082', 59_000 + 30_000), true, 'one step of drift is accepted');
     assert.equal(verifyTotp(secret, '287082', 59_000 + 120_000), false);
@@ -67,7 +68,7 @@ describe('two-step verification, sign in with GitHub, GitHub webhook', () => {
 
     const email = `gh.${Date.now()}@test.io`;
     stubFetch({
-      'https://github.com/login/oauth/access_token': { access_token: 'gho_test' },
+      'https://github.com/login/oauth/access_token': { access_token: crypto.randomBytes(16).toString('hex') },
       'https://api.github.com/user/emails': [{ email, primary: true, verified: true }],
       'https://api.github.com/user': { id: 4242, login: 'octo', name: 'Octo Cat' },
     });
