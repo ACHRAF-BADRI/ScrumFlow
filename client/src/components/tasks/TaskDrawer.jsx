@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { CalendarDays, Link2, Send, Trash2 } from 'lucide-react';
+import { CalendarDays, Link2, Pencil, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
@@ -12,8 +12,14 @@ import { Badge, LabelChip } from '../ui/Badge';
 import { useConfirm } from '../ui/Confirm';
 import { Drawer } from '../ui/Modal';
 import { EmptyState } from '../ui/Feedback';
-import { CommentText, MentionTextarea } from './Mentions';
+import { MentionTextarea } from './Mentions';
 import Checklist from './Checklist';
+import Dependencies from './Dependencies';
+import DevLinks from './DevLinks';
+import Attachments, { uploadErrorMessage } from './Attachments';
+import { SaveAsTemplateButton } from './Templates';
+import { Markdown, MarkdownEditor } from '../ui/Markdown';
+import { useServerConfig } from '../../lib/serverConfig';
 import { EpicPicker, EpicStories } from './Epics';
 import ActivityItem from '../activity/ActivityItem';
 import Tooltip from '../ui/Tooltip';
@@ -100,7 +106,7 @@ function Comments({ task }) {
           onSubmitShortcut={submit}
         />
         <div className="flex items-center justify-between rounded-b-xl border-t border-line bg-surface-2/50 px-3 py-2">
-          <span className="text-[11px] text-muted">{t('task.mentionHint')} · Ctrl + Enter</span>
+          <span className="text-[11px] text-muted">{t('task.mentionHint')} · {t('md.short')} · Ctrl + Enter</span>
           <button type="submit" className="btn-primary px-3 py-1.5" disabled={sending || !text.trim()}>
             <Send className="h-3.5 w-3.5" />
             {t('task.send')}
@@ -130,14 +136,88 @@ function Comments({ task }) {
                   </button>
                 )}
               </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm">
-                <CommentText text={c.text} members={members} />
-              </p>
+              <Markdown text={c.text} members={members} className="mt-1 break-words text-sm" />
             </div>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Description shown as Markdown; click to edit. Pasted images are uploaded as attachments. */
+function Description({ task, value, setValue, onSave }) {
+  const { t } = useTranslation();
+  const { members, uploadAttachment } = useProject();
+  const { attachments } = useServerConfig();
+  const [editing, setEditing] = useState(false);
+
+  const save = () => {
+    onSave(value);
+    setEditing(false);
+  };
+  const cancel = () => {
+    setValue(task.description ?? '');
+    setEditing(false);
+  };
+  const onPasteFile = attachments
+    ? async (file) => {
+        try {
+          const attachment = await uploadAttachment(task._id, file);
+          return attachment.url;
+        } catch (err) {
+          toast.error(uploadErrorMessage(err, t));
+          return null;
+        }
+      }
+    : undefined;
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between">
+        <h3 className="label mb-0">{t('task.description')}</h3>
+        {!editing && (
+          <button type="button" className="btn-ghost h-7 px-2 text-xs" onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" /> {t('common.edit')}
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          <MarkdownEditor
+            autoFocus
+            value={value}
+            onChange={setValue}
+            members={members}
+            onPasteFile={onPasteFile}
+            placeholder={t('task.descriptionPlaceholder')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) save();
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                cancel();
+              }
+            }}
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-secondary h-8" onClick={cancel}>
+              {t('common.cancel')}
+            </button>
+            <button type="button" className="btn-primary h-8" onClick={save}>
+              {t('common.save')}
+            </button>
+          </div>
+        </div>
+      ) : task.description?.trim() ? (
+        <div role="button" tabIndex={0} onDoubleClick={() => setEditing(true)} className="rounded-lg border border-transparent px-1 py-0.5 hover:border-line" data-testid="description">
+          <Markdown text={task.description} members={members} className="text-sm" />
+        </div>
+      ) : (
+        <button type="button" onClick={() => setEditing(true)} className="w-full rounded-lg border border-dashed border-line px-3 py-4 text-left text-sm text-muted hover:border-brand hover:text-brand">
+          {t('task.descriptionPlaceholder')}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -221,6 +301,7 @@ export default function TaskDrawer({ taskId, onClose }) {
           <span className="font-mono text-sm font-semibold text-muted">{key}</span>
           {isOverdue(task) && <Badge color="#e2445c">{t('task.overdue')}</Badge>}
           <div className="ml-auto flex items-center">
+            <SaveAsTemplateButton task={task} />
             <Tooltip label={t('task.copyLink')} side="bottom">
               <button type="button" className="btn-icon" onClick={copyLink}>
                 <Link2 className="h-4 w-4" />
@@ -289,20 +370,13 @@ export default function TaskDrawer({ taskId, onClose }) {
           </Field>
         </div>
 
-        <div>
-          <h3 className="label">{t('task.description')}</h3>
-          <textarea
-            className="input min-h-[120px] resize-y leading-relaxed"
-            placeholder={t('task.descriptionPlaceholder')}
-            value={description}
-            maxLength={5000}
-            onChange={(e) => setDescription(e.target.value)}
-            onBlur={() => description !== task.description && update({ description })}
-          />
-        </div>
+        <Description task={task} value={description} setValue={setDescription} onSave={(value) => value !== task.description && update({ description: value })} />
 
         {task.type === 'epic' && <EpicStories epic={task} />}
         <Checklist task={task} />
+        <Attachments task={task} />
+        <DevLinks task={task} />
+        {task.type !== 'epic' && <Dependencies task={task} />}
 
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
           <span className="flex items-center gap-1.5">

@@ -23,6 +23,11 @@ import TableView from './pages/views/TableView';
 import BoardView from './pages/views/BoardView';
 import TeamView from './pages/views/TeamView';
 import HistoryView from './pages/views/HistoryView';
+import StandupView from './pages/views/StandupView';
+import PokerView from './pages/views/PokerView';
+import SharedBoardPage from './pages/SharedBoardPage';
+import SprintReportPage from './pages/SprintReportPage';
+import OAuthPage from './pages/OAuthPage';
 
 // Charts are heavy: load them only when the dashboard is opened
 const DashboardView = lazy(() => import('./pages/views/DashboardView'));
@@ -84,6 +89,10 @@ export default function App() {
         {/* Public: these links must work whether or not someone is signed in */}
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/share/:token" element={<SharedBoardPage />} />
+        <Route path="/oauth" element={<OAuthPage />} />
+        {/* Printable page: outside the app layout */}
+        <Route path="/projects/:projectId/report" element={<RequireAuth><SprintReportPage /></RequireAuth>} />
         <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
           <Route index element={<ProjectsPage />} />
           <Route path="account" element={<AccountPage />} />
@@ -92,6 +101,8 @@ export default function App() {
             <Route index element={<TableView />} />
             <Route path="board" element={<BoardView />} />
             <Route path="calendar" element={<CalendarView />} />
+            <Route path="standup" element={<StandupView />} />
+            <Route path="poker" element={<PokerView />} />
             <Route path="retro/:sprintId" element={<RetroView />} />
             <Route path="dashboard" element={<Suspense fallback={<PageLoader />}><DashboardView /></Suspense>} />
             <Route path="activity" element={<ActivityView />} />

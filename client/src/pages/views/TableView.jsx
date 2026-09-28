@@ -21,6 +21,7 @@ import { CompleteSprintModal, SprintModal } from '../../components/sprints/Sprin
 import SprintGoal from '../../components/sprints/SprintGoal';
 import { ChecklistBadge } from '../../components/tasks/Checklist';
 import { EpicChip } from '../../components/tasks/Epics';
+import { BlockedIcon, useTaskIndex } from '../../components/tasks/Dependencies';
 import Tooltip from '../../components/ui/Tooltip';
 
 const GRID = 'grid grid-cols-[minmax(240px,1fr)_76px_148px_120px_64px_128px]';
@@ -63,6 +64,7 @@ function DueDateCell({ task, onChange }) {
 function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, style, handleRef, handleProps }) {
   const { project, updateTask } = useProject();
   const { openTask } = useOutletContext();
+  const byId = useTaskIndex();
   const update = (changes) => updateTask(task._id, changes);
 
   return (
@@ -83,6 +85,7 @@ function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, s
           <GripVertical className="h-4 w-4" />
         </button>
         <TypeIcon type={task.type} className="h-3.5 w-3.5" />
+        <BlockedIcon task={task} byId={byId} className="shrink-0" />
         <button type="button" onClick={() => openTask(task._id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
           <span className={clsx('truncate font-medium hover:text-brand', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
           <span className="hidden shrink-0 font-mono text-[11px] text-muted md:inline">{taskKey(project, task)}</span>

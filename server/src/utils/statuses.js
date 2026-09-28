@@ -56,6 +56,7 @@ export function sanitizeStatuses(input) {
       label,
       color: HEX.test(raw?.color ?? '') ? raw.color : '#a1a3b8',
       category: CATEGORIES.includes(raw?.category) ? raw.category : 'in_progress',
+      wipLimit: Math.max(0, Math.min(99, Math.floor(Number(raw?.wipLimit) || 0))),
     };
   });
   if (!out.some((s) => s.category === 'done') || !out.some((s) => s.category !== 'done')) {

@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Router } from 'express';
 import mongoose from 'mongoose';
 import Project, { ROLES } from '../models/Project.js';
@@ -14,6 +15,7 @@ import Notification from '../models/Notification.js';
 import Activity from '../models/Activity.js';
 import { logActivity } from '../services/activity.js';
 import { requireProject } from '../middleware/auth.js';
+import { config } from '../config.js';
 import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 
 const router = Router();
@@ -261,25 +263,34 @@ router.get('/:projectId/stats', requireProject(), async (req, res) => {
     .slice(-8)
     .map((s) => ({ sprint: s.name, committed: s.committedPoints, completed: s.completedPoints }));
 
-  // Burndown for the active sprint: remaining points at the end of each day
+  /*
+   * Burndown and burnup of one sprint: ?sprint=<id>, else the active one, else
+   * the last completed. A completed sprint's open work moved to another sprint,
+   * so its scope is the points committed when it was closed.
+   */
   let burndown = null;
-  const active = sprints.find((s) => s.status === 'active');
-  if (active?.startDate && active?.endDate) {
-    const sprintTasks = tasks.filter((t) => String(t.sprint) === String(active._id));
-    const total = sumPoints(sprintTasks);
-    const start = startOfDay(active.startDate);
-    const days = Math.max(1, Math.round((startOfDay(active.endDate) - start) / DAY));
-    const today = startOfDay(new Date());
+  const started = sprints.filter((s) => s.status !== 'planned' && s.startDate && s.endDate);
+  const chosen =
+    started.find((s) => String(s._id) === String(req.query.sprint)) ?? started.find((s) => s.status === 'active') ?? started.filter((s) => s.status === 'completed').at(-1);
+  if (chosen) {
+    const sprintTasks = tasks.filter((t) => String(t.sprint) === String(chosen._id));
+    const total = chosen.status === 'completed' ? Math.max(chosen.committedPoints, sumPoints(sprintTasks)) : sumPoints(sprintTasks);
+    const start = startOfDay(chosen.startDate);
+    const days = Math.max(1, Math.round((startOfDay(chosen.endDate) - start) / DAY));
+    const last = startOfDay(chosen.status === 'completed' && chosen.completedAt ? chosen.completedAt : new Date());
 
-    burndown = { sprint: active.name, total, points: [] };
+    burndown = { sprintId: chosen._id, sprint: chosen.name, status: chosen.status, total, points: [] };
     for (let i = 0; i <= days; i += 1) {
       const day = new Date(start.getTime() + i * DAY);
       const endOfDay = new Date(day.getTime() + DAY - 1);
       const burned = sumPoints(sprintTasks.filter((t) => t.completedAt && new Date(t.completedAt) <= endOfDay));
+      const known = day <= last;
       burndown.points.push({
         date: day.toISOString(),
         ideal: Math.round((total - (total / days) * i) * 10) / 10,
-        remaining: day <= today ? total - burned : null,
+        remaining: known ? total - burned : null,
+        done: known ? burned : null,
+        scope: total,
       });
     }
   }
@@ -317,8 +328,111 @@ router.get('/:projectId/stats', requireProject(), async (req, res) => {
     byAssignee,
     velocity,
     burndown,
+    sprints: started.map((s) => ({ _id: s._id, name: s.name, status: s.status })),
     epics,
   });
+});
+
+/**
+ * Cumulative flow: how many tasks were in each status at the end of each of
+ * the last `days` days. Rebuilt from the activity log, walking status changes
+ * back from today's state.
+ */
+router.get('/:projectId/flow', requireProject(), async (req, res) => {
+  const today = startOfDay(new Date());
+  // A young project starts at its creation (a week at least), not with weeks of empty chart
+  const age = Math.round((today - startOfDay(req.project.createdAt)) / DAY) + 1;
+  const days = Math.min(Math.max(Number(req.query.days) || 30, 7), 90, Math.max(age, 7));
+  const from = new Date(today.getTime() - (days - 1) * DAY);
+  const [tasks, changes] = await Promise.all([
+    Task.find({ project: req.project._id }).select('status createdAt').lean(),
+    Activity.find({ project: req.project._id, type: 'task.updated', 'data.field': 'status', createdAt: { $gte: from } })
+      .select('task data.from createdAt')
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+  const byTask = new Map();
+  for (const c of changes) {
+    const id = String(c.task);
+    if (!byTask.has(id)) byTask.set(id, []);
+    byTask.get(id).push(c); // newest first
+  }
+  const keys = statusesOf(req.project).map((s) => s.key);
+  const points = [];
+  for (let i = 0; i < days; i += 1) {
+    const day = new Date(from.getTime() + i * DAY);
+    const end = new Date(day.getTime() + DAY - 1);
+    const row = Object.fromEntries(keys.map((k) => [k, 0]));
+    for (const task of tasks) {
+      if (new Date(task.createdAt) > end) continue;
+      let status = task.status;
+      for (const c of byTask.get(String(task._id)) ?? []) {
+        if (new Date(c.createdAt) <= end) break;
+        status = c.data?.from ?? status;
+      }
+      if (status in row) row[status] += 1;
+    }
+    points.push({ date: day.toISOString(), ...row });
+  }
+  res.json({ days: points });
+});
+
+// ---- GitHub integration (webhook) ------------------------------------------------
+
+async function githubState(projectId) {
+  const { github } = await Project.findById(projectId).select('+github.secret').lean();
+  const connected = Boolean(github?.secret);
+  return {
+    connected,
+    repo: github?.repo ?? '',
+    autoClose: github?.autoClose ?? true,
+    webhookUrl: `${config.apiUrl}/api/webhooks/github/${projectId}`,
+    secret: connected ? github.secret : null,
+  };
+}
+
+router.get('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
+  res.json(await githubState(req.project._id));
+});
+
+// Connect, or create a new secret (the old one stops working)
+router.post('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
+  await Project.updateOne(
+    { _id: req.project._id },
+    { 'github.secret': crypto.randomBytes(24).toString('hex'), 'github.connectedAt': new Date() }
+  );
+  res.json(await githubState(req.project._id));
+});
+
+router.patch('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
+  if (req.body?.autoClose !== undefined) await Project.updateOne({ _id: req.project._id }, { 'github.autoClose': Boolean(req.body.autoClose) });
+  res.json(await githubState(req.project._id));
+});
+
+router.delete('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
+  await Project.updateOne({ _id: req.project._id }, { $unset: { 'github.secret': 1 }, 'github.repo': '', 'github.connectedAt': null });
+  res.json(await githubState(req.project._id));
+});
+
+// ---- Public read-only link ----------------------------------------------------
+
+router.get('/:projectId/share', requireProject(MANAGERS), async (req, res) => {
+  const { shareToken } = await Project.findById(req.project._id).select('+shareToken').lean();
+  res.json({ token: shareToken ?? null });
+});
+
+// Creates the link, or replaces it (the old link stops working)
+router.post('/:projectId/share', requireProject(MANAGERS), async (req, res) => {
+  const token = crypto.randomBytes(18).toString('base64url');
+  await Project.updateOne({ _id: req.project._id }, { shareToken: token });
+  await logActivity({ project: req.project, actor: req.user, type: 'project.shared' });
+  res.json({ token });
+});
+
+router.delete('/:projectId/share', requireProject(MANAGERS), async (req, res) => {
+  await Project.updateOne({ _id: req.project._id }, { shareToken: null });
+  await logActivity({ project: req.project, actor: req.user, type: 'project.unshared' });
+  res.json({ token: null });
 });
 
 export default router;

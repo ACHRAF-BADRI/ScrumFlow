@@ -19,3 +19,14 @@
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# The service worker must be checked on every visit so updates arrive
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"

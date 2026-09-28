@@ -34,7 +34,10 @@ export function Popover({ trigger, children, align = 'start', width, className }
     place();
     // Re-measure once the menu has rendered with its real size
     const frame = requestAnimationFrame(place);
+    // A scroll that brought the trigger into view can land just after the click: ignore it
+    const openedAt = performance.now();
     const onScroll = (e) => {
+      if (performance.now() - openedAt < 250) return;
       if (!menuRef.current?.contains(e.target)) close();
     };
     window.addEventListener('resize', close);

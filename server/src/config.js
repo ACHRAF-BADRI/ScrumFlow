@@ -10,8 +10,25 @@ for (const key of required) {
   }
 }
 
+/** cloudinary://<api key>:<api secret>@<cloud name>, as shown on the Cloudinary dashboard */
+function parseCloudinary(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'cloudinary:' || !url.username || !url.password || !url.hostname) return null;
+    return { apiKey: decodeURIComponent(url.username), apiSecret: decodeURIComponent(url.password), cloudName: url.hostname };
+  } catch {
+    return null;
+  }
+}
+
+const pair = (id, secret) => (process.env[id] && process.env[secret] ? { clientId: process.env[id], clientSecret: process.env[secret] } : null);
+const port = Number(process.env.PORT) || 5000;
+
 export const config = {
-  port: Number(process.env.PORT) || 5000,
+  port,
+  // Public URL of this API (OAuth redirects, webhook URLs). Render sets RENDER_EXTERNAL_URL itself.
+  apiUrl: (process.env.API_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, ''),
   mongoUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
@@ -31,4 +48,12 @@ export const config = {
   // Optional: emails are disabled when no Resend key is set
   resendApiKey: process.env.RESEND_API_KEY || null,
   emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
+  // Optional: task attachments are hidden when Cloudinary is not configured
+  cloudinary: parseCloudinary(process.env.CLOUDINARY_URL),
+  // Optional: "Sign in with Google / GitHub" buttons appear when their keys are set
+  oauth: {
+    google: pair('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'),
+    github: pair('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'),
+    microsoft: pair('MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'),
+  },
 };

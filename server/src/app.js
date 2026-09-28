@@ -17,6 +17,12 @@ import taskRoutes from './routes/tasks.js';
 import invitationRoutes from './routes/invitations.js';
 import notificationRoutes from './routes/notifications.js';
 import meRoutes from './routes/me.js';
+import templateRoutes from './routes/templates.js';
+import publicRoutes from './routes/public.js';
+import oauthRoutes from './routes/oauth.js';
+import webhookRoutes from './routes/github.js';
+import { enabledProviders } from './services/oauth.js';
+import { attachmentsEnabled } from './services/cloudinary.js';
 import { emitProjectChanged } from './realtime.js';
 import { isAllowedOrigin } from './utils/cors.js';
 
@@ -35,6 +41,8 @@ app.use(
     },
   })
 );
+// Webhooks read the raw body to check signatures: before the JSON parser
+app.use('/api/webhooks', webhookRoutes);
 app.use(express.json({ limit: '1mb' }));
 if (!config.isProd && process.env.NODE_ENV !== 'test') app.use(morgan('dev'));
 
@@ -42,8 +50,15 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
 });
 
+// Optional features the client should show (they depend on the server's environment)
+app.get('/api/config', (_req, res) => {
+  res.json({ attachments: attachmentsEnabled(), oauth: enabledProviders() });
+});
+
+app.use('/api/auth/oauth', oauthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/invitations', invitationRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/notifications', requireAuth, notificationRoutes);
 app.use('/api/me', requireAuth, meRoutes);
 
@@ -62,6 +77,7 @@ app.use('/api/projects/:projectId', (req, res, next) => {
 app.use('/api/projects', requireAuth, projectRoutes);
 app.use('/api/projects/:projectId/sprints', requireAuth, sprintRoutes);
 app.use('/api/projects/:projectId/tasks', requireAuth, taskRoutes);
+app.use('/api/projects/:projectId/templates', requireAuth, templateRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

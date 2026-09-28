@@ -20,6 +20,27 @@ const userSchema = new mongoose.Schema(
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
     // Emails for assigned tasks and @mentions
     emailNotifications: { type: Boolean, default: true },
+    // Accounts linked with "Sign in with…" (provider user ids)
+    oauth: {
+      google: { type: String, default: undefined },
+      github: { type: String, default: undefined },
+      microsoft: { type: String, default: undefined },
+    },
+    // Two-step verification with an authenticator app (TOTP)
+    twoFactor: {
+      enabled: { type: Boolean, default: false },
+      secret: { type: String, select: false },
+      pendingSecret: { type: String, select: false },
+      recoveryCodes: { type: [String], select: false }, // sha256 of each unused code
+    },
+    // Saved filter sets ("views"), per project
+    savedFilters: [
+      {
+        project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+        name: { type: String, required: true, trim: true, maxlength: 40 },
+        filters: { type: mongoose.Schema.Types.Mixed, default: {} },
+      },
+    ],
     // Forgot password: hash of the emailed token, valid for one hour
     resetPasswordHash: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
@@ -41,6 +62,9 @@ userSchema.set('toJSON', {
     delete ret.password;
     delete ret.resetPasswordHash;
     delete ret.resetPasswordExpires;
+    delete ret.savedFilters;
+    if (ret.twoFactor) ret.twoFactor = { enabled: Boolean(ret.twoFactor.enabled) };
+    if (ret.oauth) ret.oauth = { google: Boolean(ret.oauth.google), github: Boolean(ret.oauth.github), microsoft: Boolean(ret.oauth.microsoft) };
     delete ret.__v;
     return ret;
   },

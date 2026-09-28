@@ -21,7 +21,7 @@ export default function WorkflowEditor() {
   const [rows, setRows] = useState([]);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => setRows(current.map(({ key, label, color, category }) => ({ key, label, color, category })));
+  const reset = () => setRows(current.map(({ key, label, color, category, wipLimit }) => ({ key, label, color, category, wipLimit: wipLimit || 0 })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(reset, [project?.statuses]);
 
@@ -39,7 +39,7 @@ export default function WorkflowEditor() {
       return next;
     });
   const remove = (index) => setRows((list) => list.filter((_, i) => i !== index));
-  const add = () => setRows((list) => [...list, { key: undefined, label: '', color: COLORS[list.length % COLORS.length], category: 'in_progress' }]);
+  const add = () => setRows((list) => [...list, { key: undefined, label: '', color: COLORS[list.length % COLORS.length], category: 'in_progress', wipLimit: 0 }]);
 
   // Where the tasks of a removed status will go (same rule as the API)
   const removed = current.filter((c) => !rows.some((r) => r.key === c.key));
@@ -53,7 +53,7 @@ export default function WorkflowEditor() {
   if (!rows.some((r) => r.category === 'done') || !rows.some((r) => r.category !== 'done')) problems.push(t('workflow.errorDone'));
   if (rows.some((r) => !r.label.trim() && !DEFAULT_KEYS.includes(r.key))) problems.push(t('workflow.errorName'));
 
-  const dirty = JSON.stringify(rows) !== JSON.stringify(current.map(({ key, label, color, category }) => ({ key, label, color, category })));
+  const dirty = JSON.stringify(rows) !== JSON.stringify(current.map(({ key, label, color, category, wipLimit }) => ({ key, label, color, category, wipLimit: wipLimit || 0 })));
 
   const save = async () => {
     setSaving(true);
@@ -122,6 +122,18 @@ export default function WorkflowEditor() {
                   </option>
                 ))}
               </select>
+              <Tooltip label={t('wip.hint')}>
+                <input
+                  type="number"
+                  min={0}
+                  max={99}
+                  className="input h-8 w-16 px-2 py-0 text-xs"
+                  value={row.wipLimit || ''}
+                  placeholder={t('wip.max')}
+                  onChange={(e) => set(index, { wipLimit: Math.max(0, Math.min(99, Number(e.target.value) || 0)) })}
+                  aria-label={t('wip.max')}
+                />
+              </Tooltip>
               <span className="hidden w-14 shrink-0 text-right text-[11px] text-muted sm:inline">{t('workflow.tasks', { count: counts[row.key] ?? 0 })}</span>
               <div className="flex shrink-0">
                 <button type="button" className="btn-icon h-8 w-7" disabled={index === 0} onClick={() => move(index, -1)} aria-label={t('workflow.up')}>

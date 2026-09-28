@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
+import { WifiOff } from 'lucide-react';
+import { useOnline } from '../../lib/pwa';
 import { FolderKanban, LayoutGrid, ListTodo, Menu, Search, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjects } from '../../context/ProjectsContext';
@@ -140,6 +142,18 @@ function useCollapsedSidebar() {
   return [collapsed, setCollapsed];
 }
 
+/** Shown while the browser is offline: pages read from the last saved data. */
+function OfflineBanner() {
+  const { t } = useTranslation();
+  const online = useOnline();
+  if (online) return null;
+  return (
+    <div role="status" className="flex items-center justify-center gap-2 bg-[#fdab3d] px-4 py-1.5 text-center text-xs font-semibold text-[#323338]">
+      <WifiOff className="h-3.5 w-3.5 shrink-0" /> {t('pwa.offline')}
+    </div>
+  );
+}
+
 export default function AppLayout() {
   const { t } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -242,6 +256,7 @@ export default function AppLayout() {
             </div>
           </div>
         </header>
+        <OfflineBanner />
         <main className="min-w-0 flex-1">
           <Outlet context={{ openNewProject }} />
         </main>

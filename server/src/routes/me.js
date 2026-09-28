@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import Project from '../models/Project.js';
 import Task from '../models/Task.js';
+import mongoose from 'mongoose';
 import { statusesOf } from '../utils/statuses.js';
+import { badRequest, notFound } from '../utils/httpError.js';
 
 // Mounted at /api/me (requires auth)
 const router = Router();
@@ -27,6 +29,39 @@ router.get('/tasks', async (req, res) => {
     .limit(300)
     .lean();
   res.json({ tasks, projects });
+});
+
+// ---- Saved filters ("views"), per project ------------------------------------
+
+const FILTER_KEYS = ['search', 'assignee', 'epic', 'priority', 'type', 'label'];
+const cleanFilters = (input = {}) =>
+  Object.fromEntries(
+    FILTER_KEYS.filter((k) => input?.[k] !== undefined && input[k] !== null && input[k] !== '').map((k) => [k, String(input[k]).slice(0, 100)])
+  );
+const filtersOf = (user, project) => user.savedFilters.filter((f) => String(f.project) === String(project));
+
+router.get('/filters', (req, res) => {
+  res.json({ filters: filtersOf(req.user, req.query.project ?? '') });
+});
+
+router.post('/filters', async (req, res) => {
+  const { project, name, filters } = req.body || {};
+  if (!name?.trim() || !mongoose.isValidObjectId(project)) throw badRequest('A name is required', 'errors.missingFields');
+  const member = await Project.exists({ _id: project, 'members.user': req.user._id });
+  if (!member) throw notFound('Project not found', 'errors.projectNotFound');
+  if (filtersOf(req.user, project).length >= 20) throw badRequest('Too many saved filters', 'errors.tooManyFilters');
+  req.user.savedFilters.push({ project, name: name.trim().slice(0, 40), filters: cleanFilters(filters) });
+  await req.user.save();
+  res.status(201).json({ filters: filtersOf(req.user, project) });
+});
+
+router.delete('/filters/:filterId', async (req, res) => {
+  const saved = req.user.savedFilters.id(req.params.filterId);
+  if (!saved) throw notFound('Filter not found', 'errors.notFound');
+  const { project } = saved;
+  saved.deleteOne();
+  await req.user.save();
+  res.json({ filters: filtersOf(req.user, project) });
 });
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -9,6 +9,18 @@ export function signToken(user) {
   return jwt.sign({ sub: String(user._id) }, config.jwtSecret, { expiresIn: config.jwtExpiresIn });
 }
 
+/** Short-lived proof that the password (or Google/GitHub) was right; the 6-digit code comes next. */
+export function signTwoFactorTicket(user) {
+  return jwt.sign({ sub: String(user._id), purpose: '2fa' }, config.jwtSecret, { expiresIn: '10m' });
+}
+
+/** Session tokens only: tickets and OAuth states carry a `purpose` and never open a session. */
+export function verifySession(token) {
+  const payload = jwt.verify(token, config.jwtSecret);
+  if (payload.purpose) throw new Error('not a session token');
+  return payload;
+}
+
 export async function requireAuth(req, _res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -16,7 +28,7 @@ export async function requireAuth(req, _res, next) {
 
   let payload;
   try {
-    payload = jwt.verify(token, config.jwtSecret);
+    payload = verifySession(token);
   } catch {
     throw unauthorized('Invalid or expired token', 'errors.sessionExpired');
   }

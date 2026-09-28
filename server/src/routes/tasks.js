@@ -1,21 +1,26 @@
 import { Router } from 'express';
-import Project from '../models/Project.js';
 import Sprint from '../models/Sprint.js';
 import Task from '../models/Task.js';
-import { defaultStatus, hasStatus, isDoneStatus, statusLabel } from '../utils/statuses.js';
+import { hasStatus, isDoneStatus, statusLabel } from '../utils/statuses.js';
+import { cleanChecklist, createTaskRecord } from '../services/tasks.js';
+import { MAX_FILE_SIZE, attachmentsEnabled, destroyFile, isOwnUpload, uploadSignature } from '../services/cloudinary.js';
 import { isValidId, requireProject } from '../middleware/auth.js';
-import { badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
+import { HttpError, badRequest, forbidden, notFound, pick } from '../utils/httpError.js';
 import { notifyAssigned, notifyMentions } from '../services/notify.js';
 import { logActivity, logTaskChanges } from '../services/activity.js';
 import Activity from '../models/Activity.js';
 
 // Mounted at /api/projects/:projectId/tasks
 const router = Router({ mergeParams: true });
-const EDITABLE = ['title', 'description', 'type', 'status', 'priority', 'points', 'assignee', 'sprint', 'epic', 'dueDate', 'labels', 'order'];
+const EDITABLE = ['title', 'description', 'type', 'status', 'priority', 'points', 'assignee', 'sprint', 'epic', 'dueDate', 'labels', 'order', 'blockedBy'];
 const USER_FIELDS = 'name email avatarColor';
 
 const withRefs = (query) =>
-  query.populate('assignee', USER_FIELDS).populate('reporter', USER_FIELDS).populate('comments.author', USER_FIELDS);
+  query
+    .populate('assignee', USER_FIELDS)
+    .populate('reporter', USER_FIELDS)
+    .populate('comments.author', USER_FIELDS)
+    .populate('attachments.uploadedBy', 'name avatarColor');
 
 async function loadTask(req) {
   const { taskId } = req.params;
@@ -50,10 +55,40 @@ async function validateRefs(req, data) {
   if (data.status !== undefined && !hasStatus(req.project, data.status)) {
     throw badRequest('Unknown status for this project', 'errors.badStatus');
   }
+  if (data.blockedBy !== undefined) data.blockedBy = await validateBlockers(req, data.blockedBy);
   if (Array.isArray(data.labels)) {
     data.labels = [...new Set(data.labels.map((l) => String(l).trim()).filter(Boolean))].slice(0, 10);
   }
   return data;
+}
+
+/**
+ * "Blocked by" links: tasks of the same project, never the task itself, and
+ * no loop (A waits for B which waits for A).
+ */
+async function validateBlockers(req, input) {
+  if (!Array.isArray(input)) throw badRequest('blockedBy must be an array', 'errors.badRequest');
+  const ids = [...new Set(input.map(String))].filter(isValidId).slice(0, 20);
+  const self = req.params.taskId ? String(req.params.taskId) : null;
+  if (self && ids.includes(self)) throw badRequest('A task cannot block itself', 'errors.badBlocker');
+  if (!ids.length) return [];
+
+  const all = await Task.find({ project: req.project._id }).select('blockedBy').lean();
+  const graph = new Map(all.map((t) => [String(t._id), (t.blockedBy ?? []).map(String)]));
+  if (ids.some((id) => !graph.has(id))) throw badRequest('Blockers must be tasks of this project', 'errors.badBlocker');
+  if (self) {
+    // Walk down from the new blockers: reaching this task again means a loop
+    const seen = new Set();
+    const stack = [...ids];
+    while (stack.length) {
+      const id = stack.pop();
+      if (id === self) throw badRequest('This link would create a loop', 'errors.blockerLoop');
+      if (seen.has(id)) continue;
+      seen.add(id);
+      stack.push(...(graph.get(id) ?? []));
+    }
+  }
+  return ids;
 }
 
 router.get('/', requireProject(), async (req, res) => {
@@ -68,25 +103,9 @@ router.get('/', requireProject(), async (req, res) => {
 router.post('/', requireProject(), async (req, res) => {
   if (!req.body?.title?.trim()) throw badRequest('Title is required', 'errors.missingFields');
   const data = await validateRefs(req, pick(req.body, EDITABLE));
-
-  // Atomic counter gives every task a readable, unique key such as WEB-42
-  const { taskCounter } = await Project.findByIdAndUpdate(
-    req.project._id,
-    { $inc: { taskCounter: 1 } },
-    { new: true, projection: { taskCounter: 1 } }
-  );
-  const last = await Task.findOne({ project: req.project._id }).sort({ order: -1 }).select('order').lean();
-
-  const status = data.status ?? defaultStatus(req.project);
-  const task = await Task.create({
-    order: (last?.order ?? 0) + 1,
-    ...data,
-    status,
-    completedAt: isDoneStatus(req.project, status) ? new Date() : null,
-    project: req.project._id,
-    number: taskCounter,
-    reporter: req.user._id,
-  });
+  // A template can bring its checklist along
+  data.checklist = cleanChecklist(req.body.checklist);
+  const task = await createTaskRecord({ project: req.project, data, reporterId: req.user._id });
   notifyAssigned({ actor: req.user, project: req.project, task, assigneeId: task.assignee }).catch(() => {});
   await logActivity({ project: req.project, actor: req.user, task, type: 'task.created' });
   res.status(201).json({ task: await withRefs(Task.findById(task._id)) });
@@ -157,7 +176,9 @@ router.delete('/:taskId', requireProject(), async (req, res) => {
   const canDelete = ['owner', 'admin'].includes(req.role) || String(task.reporter) === String(req.user._id);
   if (!canDelete) throw forbidden('Only the reporter or a project admin can delete this task', 'errors.forbidden');
   await task.deleteOne();
+  task.attachments.forEach((file) => destroyFile(file));
   if (task.type === 'epic') await Task.updateMany({ epic: task._id }, { epic: null });
+  await Task.updateMany({ project: req.project._id, blockedBy: task._id }, { $pull: { blockedBy: task._id } });
   await logActivity({ project: req.project, actor: req.user, task, type: 'task.deleted' });
   res.status(204).end();
 });
@@ -224,6 +245,58 @@ router.delete('/:taskId/checklist/:itemId', requireProject(), async (req, res) =
   if (!item) throw notFound('Checklist item not found', 'errors.notFound');
   item.deleteOne();
   await task.save();
+  res.json({ task: await withRefs(Task.findById(task._id)) });
+});
+
+// ---- Attachments (files on Cloudinary) ---------------------------------------
+
+const MAX_ATTACHMENTS = 20;
+const RESOURCE_TYPES = ['image', 'video', 'raw'];
+
+function assertAttachments() {
+  if (!attachmentsEnabled()) throw new HttpError(503, 'File uploads are not configured on this server', 'errors.attachmentsDisabled');
+}
+
+// Signature for one direct upload from the browser to Cloudinary
+router.post('/:taskId/attachments/sign', requireProject(), async (req, res) => {
+  assertAttachments();
+  const task = await loadTask(req);
+  if (task.attachments.length >= MAX_ATTACHMENTS) throw badRequest('Too many attachments', 'errors.tooManyAttachments');
+  res.json({ ...uploadSignature(req.project._id), maxSize: MAX_FILE_SIZE });
+});
+
+// Saves the uploaded file on the task
+router.post('/:taskId/attachments', requireProject(), async (req, res) => {
+  assertAttachments();
+  const task = await loadTask(req);
+  const { url, publicId, name, size, mime, resourceType } = req.body || {};
+  if (!isOwnUpload(req.project._id, { url, publicId })) throw badRequest('Unknown file', 'errors.badAttachment');
+  if (Number(size) > MAX_FILE_SIZE) throw badRequest('File too large', 'errors.fileTooLarge');
+  if (task.attachments.length >= MAX_ATTACHMENTS) throw badRequest('Too many attachments', 'errors.tooManyAttachments');
+  task.attachments.push({
+    url,
+    publicId,
+    name: String(name || 'file').slice(0, 200),
+    size: Number(size) || 0,
+    mime: String(mime ?? '').slice(0, 120),
+    resourceType: RESOURCE_TYPES.includes(resourceType) ? resourceType : 'raw',
+    uploadedBy: req.user._id,
+  });
+  await task.save();
+  await logActivity({ project: req.project, actor: req.user, task, type: 'attachment.added', data: { name: String(name || 'file').slice(0, 200) } });
+  res.status(201).json({ task: await withRefs(Task.findById(task._id)), attachment: task.attachments.at(-1) });
+});
+
+router.delete('/:taskId/attachments/:attachmentId', requireProject(), async (req, res) => {
+  const task = await loadTask(req);
+  const file = task.attachments.id(req.params.attachmentId);
+  if (!file) throw notFound('Attachment not found', 'errors.notFound');
+  const canDelete = String(file.uploadedBy) === String(req.user._id) || ['owner', 'admin'].includes(req.role);
+  if (!canDelete) throw forbidden();
+  const { publicId, resourceType } = file;
+  file.deleteOne();
+  await task.save();
+  destroyFile({ publicId, resourceType });
   res.json({ task: await withRefs(Task.findById(task._id)) });
 });
 

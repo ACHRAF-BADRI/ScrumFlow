@@ -10,7 +10,10 @@ import Notification from '../models/Notification.js';
 import { resetPasswordEmail } from '../emails/templates.js';
 import { appUrl, sendEmail } from '../utils/mailer.js';
 import { joinPendingInvitations } from '../services/invitations.js';
-import { requireAuth, signToken } from '../middleware/auth.js';
+import jwt from 'jsonwebtoken';
+import { config } from '../config.js';
+import { requireAuth, signToken, signTwoFactorTicket } from '../middleware/auth.js';
+import { generateSecret, hashCode, otpauthUrl, recoveryCodes, verifyTotp } from '../utils/totp.js';
 import { badRequest, pick, unauthorized } from '../utils/httpError.js';
 
 const router = Router();
@@ -36,6 +39,32 @@ router.post('/login', authLimiter, async (req, res) => {
   const user = await User.findOne({ email: String(email).toLowerCase().trim() }).select('+password');
   if (!user || !(await user.comparePassword(password))) {
     throw unauthorized('Invalid email or password', 'errors.invalidCredentials');
+  }
+  // Two-step verification: no session yet, a ticket to exchange with the 6-digit code
+  if (user.twoFactor?.enabled) return res.json({ twoFactor: true, ticket: signTwoFactorTicket(user) });
+  res.json({ token: signToken(user), user });
+});
+
+/** Second step of the login: the code of the authenticator app, or a recovery code. */
+router.post('/2fa', authLimiter, async (req, res) => {
+  const { ticket, code } = req.body || {};
+  let payload;
+  try {
+    payload = jwt.verify(String(ticket ?? ''), config.jwtSecret);
+  } catch {
+    payload = null;
+  }
+  if (payload?.purpose !== '2fa') throw unauthorized('Sign in again', 'errors.ticketExpired');
+  const user = await User.findById(payload.sub).select('+twoFactor.secret +twoFactor.recoveryCodes');
+  if (!user?.twoFactor?.enabled) throw unauthorized('Sign in again', 'errors.ticketExpired');
+
+  const value = String(code ?? '').trim();
+  if (!verifyTotp(user.twoFactor.secret, value)) {
+    // A recovery code works once
+    const index = user.twoFactor.recoveryCodes.indexOf(hashCode(value));
+    if (index === -1) throw badRequest('Wrong code', 'errors.wrongCode');
+    user.twoFactor.recoveryCodes.splice(index, 1);
+    await user.save();
   }
   res.json({ token: signToken(user), user });
 });
@@ -78,6 +107,37 @@ router.post('/reset-password', authLimiter, async (req, res) => {
 
 router.get('/me', requireAuth, (req, res) => {
   res.json({ user: req.user });
+});
+
+// ---- Two-step verification setup ------------------------------------------------
+
+// New secret to scan; only active after a first valid code (enable)
+router.post('/me/2fa/setup', requireAuth, authLimiter, async (req, res) => {
+  const secret = generateSecret();
+  await User.updateOne({ _id: req.user._id }, { 'twoFactor.pendingSecret': secret });
+  res.json({ secret, otpauthUrl: otpauthUrl({ secret, email: req.user.email }) });
+});
+
+router.post('/me/2fa/enable', requireAuth, authLimiter, async (req, res) => {
+  const user = await User.findById(req.user._id).select('+twoFactor.pendingSecret');
+  if (!user.twoFactor?.pendingSecret || !verifyTotp(user.twoFactor.pendingSecret, req.body?.code)) {
+    throw badRequest('Wrong code', 'errors.wrongCode');
+  }
+  const codes = recoveryCodes();
+  user.twoFactor = { enabled: true, secret: user.twoFactor.pendingSecret, pendingSecret: undefined, recoveryCodes: codes.map(hashCode) };
+  await user.save();
+  res.json({ user, recoveryCodes: codes });
+});
+
+// Needs the password, or a current code (accounts created with Google/GitHub have no known password)
+router.post('/me/2fa/disable', requireAuth, authLimiter, async (req, res) => {
+  const user = await User.findById(req.user._id).select('+password +twoFactor.secret');
+  const { password, code } = req.body || {};
+  const ok = (password && (await user.comparePassword(password))) || verifyTotp(user.twoFactor?.secret, code);
+  if (!ok) throw badRequest('Wrong password or code', 'errors.wrongCode');
+  user.twoFactor = { enabled: false };
+  await user.save();
+  res.json({ user });
 });
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

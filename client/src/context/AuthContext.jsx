@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { toast } from 'sonner';
 import i18n from '../i18n';
 import { api, tokenStore } from '../lib/api';
+import { clearOfflineData } from '../lib/pwa';
 
 const AuthContext = createContext(null);
 
@@ -28,6 +29,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     tokenStore.clear();
+    clearOfflineData();
     setUser(null);
   }, []);
 
@@ -45,9 +47,37 @@ export function AuthProvider({ children }) {
   const authenticate = useCallback(
     async (path, payload) => {
       const { data } = await api.post(path, payload);
+      // Two-step verification: the caller asks for the code, then calls verifyTwoFactor
+      if (data.twoFactor) return { twoFactor: true, ticket: data.ticket };
       tokenStore.set(data.token);
       applyUser(data.user);
       return data.user;
+    },
+    [applyUser]
+  );
+
+  const verifyTwoFactor = useCallback(
+    async (ticket, code) => {
+      const { data } = await api.post('/auth/2fa', { ticket, code });
+      tokenStore.set(data.token);
+      applyUser(data.user);
+      return data.user;
+    },
+    [applyUser]
+  );
+
+  /** Session token from "Sign in with Google / GitHub". */
+  const signInWithToken = useCallback(
+    async (token) => {
+      tokenStore.set(token);
+      try {
+        const { data } = await api.get('/auth/me');
+        applyUser(data.user);
+        return data.user;
+      } catch (err) {
+        tokenStore.clear();
+        throw err;
+      }
     },
     [applyUser]
   );
@@ -107,8 +137,11 @@ export function AuthProvider({ children }) {
       changePassword,
       deleteAccount,
       signInWith,
+      verifyTwoFactor,
+      signInWithToken,
+      setUser,
     }),
-    [user, loading, authenticate, logout, updateProfile, saveProfile, changePassword, deleteAccount, signInWith]
+    [user, loading, authenticate, logout, updateProfile, saveProfile, changePassword, deleteAccount, signInWith, verifyTwoFactor, signInWithToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
