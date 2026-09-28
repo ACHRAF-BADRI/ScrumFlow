@@ -46,9 +46,13 @@ describe('my work, search and notifications', () => {
     const task = await createTask(owner, project._id, { title: 'For Tom' });
     await api(owner).patch(`/api/projects/${project._id}/tasks/${task._id}`).send({ assignee: mate.user._id });
     await api(owner).post(`/api/projects/${project._id}/tasks/${task._id}/comments`).send({ text: 'Thanks @Tom Mate!' });
-    await new Promise((r) => setTimeout(r, 200)); // notifications are created after the response
-
-    const bell = (await api(mate).get('/api/notifications')).body;
+    // Notifications are created after the response: wait for them instead of a fixed delay (slow CI machines)
+    let bell;
+    for (let i = 0; i < 50; i += 1) {
+      bell = (await api(mate).get('/api/notifications')).body;
+      if (bell.notifications.length >= 3) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
     assert.deepEqual(bell.notifications.map((n) => n.type).sort(), ['added', 'assigned', 'mention']);
     assert.equal(bell.unread, 3);
     const read = (await api(mate).post('/api/notifications/read-all')).body;
