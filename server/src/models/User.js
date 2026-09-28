@@ -1,5 +1,8 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { config } from '../config.js';
+
+const isRootEmail = (email) => Boolean(config.admin.email) && String(email ?? '').toLowerCase() === config.admin.email;
 
 const OAUTH_PROVIDERS = ['google', 'microsoft', 'github', 'gitlab', 'bitbucket'];
 const AVATAR_COLORS = ['#6161ff', '#00c875', '#fdab3d', '#e2445c', '#a25ddc', '#579bfc', '#ff642e', '#037f4c'];
@@ -21,6 +24,14 @@ const userSchema = new mongoose.Schema(
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
     // Emails for assigned tasks and @mentions
     emailNotifications: { type: Boolean, default: true },
+    // Platform admin access (the main admin is the ADMIN_EMAIL account, see services/admin.js)
+    isAdmin: { type: Boolean, default: false },
+    // Suspended accounts cannot sign in; their sessions stop working
+    suspended: { type: Boolean, default: false },
+    suspendedAt: { type: Date, default: null },
+    lastLoginAt: { type: Date, default: null },
+    // Keyed hash of ADMIN_PASSWORD, to know when it changed on the server
+    adminFingerprint: { type: String, select: false },
     // Accounts linked with "Sign in with…" (provider user ids)
     oauth: {
       google: { type: String, default: undefined },
@@ -66,6 +77,10 @@ userSchema.set('toJSON', {
     delete ret.resetPasswordHash;
     delete ret.resetPasswordExpires;
     delete ret.savedFilters;
+    delete ret.adminFingerprint;
+    // The client shows the admin area when this is true (main admin included)
+    ret.isAdmin = Boolean(ret.isAdmin) || isRootEmail(ret.email);
+    if (isRootEmail(ret.email)) ret.isRootAdmin = true;
     if (ret.twoFactor) ret.twoFactor = { enabled: Boolean(ret.twoFactor.enabled) };
     // Only whether each provider is linked, never the provider ids
     if (ret.oauth) ret.oauth = Object.fromEntries(OAUTH_PROVIDERS.map((name) => [name, Boolean(ret.oauth[name])]));

@@ -5,12 +5,14 @@ import { config } from './config.js';
 import { initRealtime } from './realtime.js';
 import { startRecurringJob } from './services/recurring.js';
 import { runMigrations } from './services/migrations.js';
+import { ensureRootAdmin } from './services/admin.js';
 
 mongoose
   .connect(config.mongoUri)
   .then(() => {
     console.log('Connected to MongoDB');
     runMigrations().catch((err) => console.warn('[migrations]', err.message));
+    ensureRootAdmin().catch((err) => console.warn('[admin]', err.message));
     const server = http.createServer(app);
     initRealtime(server);
     server.listen(config.port, () => console.log(`API listening on port ${config.port}`));

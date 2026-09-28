@@ -2,11 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
-import Project from '../models/Project.js';
-import Sprint from '../models/Sprint.js';
-import Task from '../models/Task.js';
 import Invitation, { hashToken, newToken } from '../models/Invitation.js';
-import Notification from '../models/Notification.js';
 import { resetPasswordEmail } from '../emails/templates.js';
 import { appUrl, sendEmail } from '../utils/mailer.js';
 import { joinPendingInvitations } from '../services/invitations.js';
@@ -14,7 +10,9 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
 import { requireAuth, signToken, signTwoFactorTicket } from '../middleware/auth.js';
 import { generateSecret, hashCode, otpauthUrl, recoveryCodes, verifyTotp } from '../utils/totp.js';
-import { badRequest, pick, unauthorized } from '../utils/httpError.js';
+import { badRequest, forbidden, pick, unauthorized } from '../utils/httpError.js';
+import { deleteUserAccount } from '../services/accounts.js';
+import { isRootAdmin } from '../services/admin.js';
 
 const router = Router();
 
@@ -40,8 +38,10 @@ router.post('/login', authLimiter, async (req, res) => {
   if (!user || !(await user.comparePassword(password))) {
     throw unauthorized('Invalid email or password', 'errors.invalidCredentials');
   }
+  if (user.suspended) throw forbidden('This account is suspended', 'errors.accountSuspended');
   // Two-step verification: no session yet, a ticket to exchange with the 6-digit code
   if (user.twoFactor?.enabled) return res.json({ twoFactor: true, ticket: signTwoFactorTicket(user) });
+  await User.updateOne({ _id: user._id }, { lastLoginAt: new Date() });
   res.json({ token: signToken(user), user });
 });
 
@@ -57,6 +57,7 @@ router.post('/2fa', authLimiter, async (req, res) => {
   if (payload?.purpose !== '2fa') throw unauthorized('Sign in again', 'errors.ticketExpired');
   const user = await User.findById(payload.sub).select('+twoFactor.secret +twoFactor.recoveryCodes');
   if (!user?.twoFactor?.enabled) throw unauthorized('Sign in again', 'errors.ticketExpired');
+  if (user.suspended) throw forbidden('This account is suspended', 'errors.accountSuspended');
 
   const value = String(code ?? '').trim();
   if (!verifyTotp(user.twoFactor.secret, value)) {
@@ -66,6 +67,7 @@ router.post('/2fa', authLimiter, async (req, res) => {
     user.twoFactor.recoveryCodes.splice(index, 1);
     await user.save();
   }
+  await User.updateOne({ _id: user._id }, { lastLoginAt: new Date() });
   res.json({ token: signToken(user), user });
 });
 
@@ -189,6 +191,7 @@ router.post('/me/password', requireAuth, authLimiter, async (req, res) => {
   if (!newPassword || String(newPassword).length < 6) {
     throw badRequest('Password must be at least 6 characters', 'errors.passwordTooShort');
   }
+  if (isRootAdmin(req.user)) throw forbidden('The main admin password is set on the server', 'errors.adminProtected');
   const user = await assertPassword(req.user._id, currentPassword);
   user.password = newPassword; // hashed by the pre-save hook
   await user.save();
@@ -206,31 +209,9 @@ router.delete('/me', requireAuth, authLimiter, async (req, res) => {
     throw badRequest('Type your name exactly to confirm', 'errors.confirmMismatch');
   }
 
-  const projects = await Project.find({ 'members.user': userId });
-  let transferred = 0;
-  let deleted = 0;
-  for (const project of projects) {
-    const others = project.members.filter((m) => String(m.user) !== String(userId));
-    if (String(project.owner) === String(userId)) {
-      if (others.length === 0) {
-        await Promise.all([Task.deleteMany({ project: project._id }), Sprint.deleteMany({ project: project._id })]);
-        await project.deleteOne();
-        deleted += 1;
-        continue;
-      }
-      const heir = others.find((m) => m.role === 'admin') ?? others[0];
-      heir.role = 'owner';
-      project.owner = heir.user;
-      transferred += 1;
-    }
-    project.members = others;
-    await project.save();
-  }
-  // Their open work becomes unassigned instead of pointing at a deleted account
-  await Task.updateMany({ assignee: userId }, { assignee: null });
-  await Invitation.deleteMany({ invitedBy: userId, acceptedAt: null });
-  await Notification.deleteMany({ user: userId });
-  await User.deleteOne({ _id: userId });
+  // The main admin account comes from the server settings
+  if (isRootAdmin(req.user)) throw forbidden('The main admin account cannot be deleted', 'errors.adminProtected');
+  const { transferred, deleted } = await deleteUserAccount(userId);
 
   res.json({ ok: true, transferred, deleted });
 });
