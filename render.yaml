@@ -49,3 +49,7 @@ services:
         sync: false
       - key: BITBUCKET_CLIENT_SECRET
         sync: false
+      - key: AI_PROVIDER
+        value: groq # or gemini, openrouter, anthropic
+      - key: GROQ_API_KEY
+        sync: false # AI suggestions, free tier at console.groq.com

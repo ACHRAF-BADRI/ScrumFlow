@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Check, ListChecks, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
+import { AiBreakdown } from '../ai/Ai';
 import { toastError } from '../../lib/api';
 import { ProgressBar } from '../ui/Feedback';
 
@@ -110,11 +111,14 @@ export default function Checklist({ task }) {
         <h3 className="label mb-0 flex items-center gap-1.5">
           <ListChecks className="h-3.5 w-3.5" /> {t('checklist.title')}
         </h3>
-        {items.length > 0 && (
-          <span className={clsx('text-xs font-semibold', done === items.length ? 'text-[#00c875]' : 'text-muted')}>
-            {done}/{items.length}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <AiBreakdown task={task} />
+          {items.length > 0 && (
+            <span className={clsx('text-xs font-semibold', done === items.length ? 'text-[#00c875]' : 'text-muted')}>
+              {done}/{items.length}
+            </span>
+          )}
+        </div>
       </div>
       {items.length > 0 && <ProgressBar value={(done / items.length) * 100} className="mb-2" />}
       <ul className="-mx-2">

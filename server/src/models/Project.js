@@ -66,6 +66,8 @@ const projectSchema = new mongoose.Schema(
     // Incremented atomically to give tasks human-readable keys (e.g. WEB-12)
     taskCounter: { type: Number, default: 0 },
     templates: [templateSchema],
+    // AI uses of the day (daily limit per project)
+    aiUsage: { day: { type: String, default: '' }, count: { type: Number, default: 0 } },
     // Read-only public link (/share/<token>); null = not shared. Only managers can read it.
     shareToken: { type: String, default: null, select: false },
     // Git integration (GitHub or GitLab webhook): the secret authenticates the

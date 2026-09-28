@@ -18,6 +18,8 @@ import invitationRoutes from './routes/invitations.js';
 import notificationRoutes from './routes/notifications.js';
 import meRoutes from './routes/me.js';
 import templateRoutes from './routes/templates.js';
+import aiRoutes from './routes/ai.js';
+import { aiEnabled, aiProviderName } from './services/ai.js';
 import publicRoutes from './routes/public.js';
 import oauthRoutes from './routes/oauth.js';
 import webhookRoutes from './routes/webhooks.js';
@@ -52,7 +54,7 @@ app.get('/api/health', (_req, res) => {
 
 // Optional features the client should show (they depend on the server's environment)
 app.get('/api/config', (_req, res) => {
-  res.json({ attachments: attachmentsEnabled(), oauth: enabledProviders() });
+  res.json({ attachments: attachmentsEnabled(), oauth: enabledProviders(), ai: aiEnabled() ? { provider: aiProviderName() } : null });
 });
 
 app.use('/api/auth/oauth', oauthRoutes);
@@ -78,6 +80,7 @@ app.use('/api/projects', requireAuth, projectRoutes);
 app.use('/api/projects/:projectId/sprints', requireAuth, sprintRoutes);
 app.use('/api/projects/:projectId/tasks', requireAuth, taskRoutes);
 app.use('/api/projects/:projectId/templates', requireAuth, templateRoutes);
+app.use('/api/projects/:projectId/ai', requireAuth, aiRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

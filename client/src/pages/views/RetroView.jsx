@@ -12,6 +12,7 @@ import { formatDate } from '../../lib/format';
 import { Avatar } from '../../components/ui/Avatar';
 import { EmptyState, PageLoader } from '../../components/ui/Feedback';
 import Tooltip from '../../components/ui/Tooltip';
+import { AiRetroDraft } from '../../components/ai/Ai';
 
 const COLUMNS = [
   { id: 'wentWell', color: '#00c875', icon: TrendingUp },
@@ -192,12 +193,15 @@ export default function RetroView() {
       <Link to={sprint.status === 'completed' ? '../../history' : '../..'} relative="path" className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-brand">
         <ArrowLeft className="h-4 w-4" /> {sprint.status === 'completed' ? t('views.history') : t('views.table')}
       </Link>
-      <div className="mb-5">
-        <h2 className="text-xl font-extrabold tracking-tight">{t('retro.title', { name: sprint.name })}</h2>
-        <p className="text-sm text-muted">
-          {sprint.startDate && `${formatDate(sprint.startDate)} → ${formatDate(sprint.endDate)} · `}
-          {t('retro.subtitle')}
-        </p>
+      <div className="mb-5 flex flex-wrap items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xl font-extrabold tracking-tight">{t('retro.title', { name: sprint.name })}</h2>
+          <p className="text-sm text-muted">
+            {sprint.startDate && `${formatDate(sprint.startDate)} → ${formatDate(sprint.endDate)} · `}
+            {t('retro.subtitle')}
+          </p>
+        </div>
+        <AiRetroDraft sprint={sprint} onAdd={add} />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         {COLUMNS.map((column) => {
