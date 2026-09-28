@@ -33,13 +33,14 @@ function TaskTable({ title, tasks, project, statusMap, t }) {
       <h3 className="mb-2 text-sm font-bold">
         {title} ({tasks.length})
       </h3>
-      <table className="w-full border-collapse text-left text-[13px]">
+      <div className="-mx-1 overflow-x-auto px-1">
+      <table className="w-full min-w-[20rem] border-collapse text-left text-[13px]">
         <thead>
           <tr className="border-b border-[#e6e9ef] text-[11px] uppercase tracking-wide text-[#676879]">
             <th className="py-1.5 pr-2 font-semibold">{t('csv.key')}</th>
             <th className="py-1.5 pr-2 font-semibold">{t('task.title')}</th>
-            <th className="py-1.5 pr-2 font-semibold">{t('task.status')}</th>
-            <th className="py-1.5 pr-2 font-semibold">{t('task.assignee')}</th>
+            <th className="hidden py-1.5 pr-2 font-semibold sm:table-cell print:table-cell">{t('task.status')}</th>
+            <th className="hidden py-1.5 pr-2 font-semibold sm:table-cell print:table-cell">{t('task.assignee')}</th>
             <th className="py-1.5 text-right font-semibold">{t('common.points')}</th>
           </tr>
         </thead>
@@ -48,16 +49,17 @@ function TaskTable({ title, tasks, project, statusMap, t }) {
             <tr key={task._id} className="border-b border-[#f0f1f5] align-top">
               <td className="whitespace-nowrap py-1.5 pr-2 font-mono text-[11px] text-[#676879]">{taskKey(project, task)}</td>
               <td className="py-1.5 pr-2">{task.title}</td>
-              <td className="whitespace-nowrap py-1.5 pr-2">
+              <td className="hidden whitespace-nowrap py-1.5 pr-2 sm:table-cell print:table-cell">
                 <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ background: statusMap[task.status]?.color }} />
                 {statusMap[task.status]?.name}
               </td>
-              <td className="whitespace-nowrap py-1.5 pr-2">{task.assignee?.name ?? t('common.unassigned')}</td>
+              <td className="hidden whitespace-nowrap py-1.5 pr-2 sm:table-cell print:table-cell">{task.assignee?.name ?? t('common.unassigned')}</td>
               <td className="py-1.5 text-right font-semibold">{task.points || 0}</td>
             </tr>
           ))}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -122,7 +124,7 @@ function Report() {
         </button>
       </div>
 
-      <article className="mx-auto max-w-[820px] space-y-6 rounded-2xl bg-white p-8 text-[#323338] shadow-card print:max-w-none print:rounded-none print:p-0 print:shadow-none" data-testid="report">
+      <article className="mx-auto max-w-[820px] space-y-6 rounded-2xl bg-white p-4 sm:p-8 text-[#323338] shadow-card print:max-w-none print:rounded-none print:p-0 print:shadow-none" data-testid="report">
         <header className="flex items-start gap-3 border-b border-[#e6e9ef] pb-4">
           <LogoMark className="h-10 w-10" />
           <div className="min-w-0 flex-1">

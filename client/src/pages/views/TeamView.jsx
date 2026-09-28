@@ -252,7 +252,7 @@ export default function TeamView() {
   const sorted = [...members].sort((a, b) => roleOrder[a.role] - roleOrder[b.role] || a.name.localeCompare(b.name));
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-4 p-4 sm:p-6 lg:grid-cols-[1fr_22rem]">
+    <div className="mx-auto grid max-w-5xl gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="space-y-4">
         <section className="card overflow-hidden">
           <h3 className="border-b border-line px-4 py-3 text-sm font-bold sm:px-5">

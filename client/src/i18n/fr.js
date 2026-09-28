@@ -98,6 +98,8 @@ const fr = {
     activity: 'Activité',
     history: 'Historique',
     team: 'Équipe et paramètres',
+    more: 'Plus',
+    label: 'Vues du projet',
   },
   status: {
     todo: 'À faire',

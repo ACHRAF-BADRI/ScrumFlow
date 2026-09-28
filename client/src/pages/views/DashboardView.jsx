@@ -14,8 +14,8 @@ import ChartTooltip from '../../components/ui/ChartTooltip';
 
 function StatCard({ icon: Icon, color, label, value, hint }) {
   return (
-    <div className="card flex items-center gap-4 p-4">
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: `${color}1f`, color }}>
+    <div className="card flex flex-col items-start gap-2 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11" style={{ background: `${color}1f`, color }}>
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0">
@@ -119,7 +119,7 @@ export default function DashboardView() {
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard icon={ListTodo} color="#6161ff" label={t('dashboard.totalTasks')} value={totals.tasks} hint={t('dashboard.inBacklog', { count: totals.backlog })} />
         <StatCard icon={CheckCircle2} color="#00c875" label={t('dashboard.completion')} value={`${completion}%`} hint={`${totals.done} / ${totals.tasks}`} />
         <StatCard icon={Zap} color="#fdab3d" label={t('dashboard.storyPoints')} value={totals.donePoints} hint={`/ ${totals.points} ${t('common.points')}`} />

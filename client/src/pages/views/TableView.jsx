@@ -86,17 +86,16 @@ function TaskRowView({ task, color, dragDisabled, overlay, isDragging, rowRef, s
         </button>
         <TypeIcon type={task.type} className="h-3.5 w-3.5" />
         <BlockedIcon task={task} byId={byId} className="shrink-0" />
-        <button type="button" onClick={() => openTask(task._id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          <span className={clsx('truncate font-medium hover:text-brand', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
+        <button type="button" onClick={() => openTask(task._id)} className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">
+          <span className={clsx('min-w-[5rem] truncate font-medium hover:text-brand', task.completedAt && 'text-muted line-through decoration-muted/50')}>{task.title}</span>
           <span className="hidden shrink-0 font-mono text-[11px] text-muted md:inline">{taskKey(project, task)}</span>
-          <span className="hidden lg:inline-flex">
+          {/* Epic and labels only when the row is wide enough, and they give way first */}
+          <span className="hidden min-w-0 shrink items-center gap-1 overflow-hidden 2xl:flex">
             <EpicChip epicId={task.epic} />
+            {task.labels?.slice(0, 2).map((l) => (
+              <LabelChip key={l}>{l}</LabelChip>
+            ))}
           </span>
-          {task.labels?.slice(0, 2).map((l) => (
-            <span key={l} className="hidden lg:inline">
-              <LabelChip>{l}</LabelChip>
-            </span>
-          ))}
         </button>
         <ChecklistBadge checklist={task.checklist} />
         {task.comments?.length > 0 && (

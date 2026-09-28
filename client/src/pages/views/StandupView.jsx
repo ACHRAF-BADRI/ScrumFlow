@@ -130,7 +130,7 @@ export default function StandupView() {
   return (
     <div className="space-y-5 px-4 py-5 sm:px-6">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="w-full min-w-0 md:w-auto md:flex-1">
           <h2 className="text-lg font-bold">{t('standup.title')}</h2>
           <p className="text-sm text-muted">
             {t('standup.since', { date: formatDate(since, { weekday: 'long', day: 'numeric', month: 'long' }) })}

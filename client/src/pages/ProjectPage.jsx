@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
 import { Activity, CalendarDays, Coffee, Download, FileSpreadsheet, FileText, Spade, Filter, History, Zap, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import { useEpics } from '../components/tasks/Epics';
 import { useAutoTour } from '../components/tour/TourProvider';
 import Tooltip from '../components/ui/Tooltip';
 import NewTaskModal from '../components/tasks/NewTaskModal';
+import ResponsiveTabs from '../components/layout/ResponsiveTabs';
 import { EMPTY_FILTERS, MoreFilters, SavedViews, hasFilters } from '../components/SavedFilters';
 import { downloadText, tasksToCsv } from '../lib/exportCsv';
 import { useStatuses } from '../hooks/useStatuses';
@@ -49,7 +50,7 @@ function Filters({ filters, setFilters }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-[10rem] flex-1 sm:max-w-xs sm:flex-none">
+      <label className="relative w-full sm:w-auto sm:min-w-[10rem] sm:max-w-xs sm:flex-none">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
         <input
           className="input h-9 pl-9"
@@ -257,7 +258,7 @@ function ProjectShell() {
     );
   }
 
-  const showFilters = !/\/(standup|poker|dashboard|activity|history|team)$/.test(location.pathname);
+  const showFilters = !/\/(standup|poker|dashboard|activity|history|team)$|\/retro\//.test(location.pathname);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
@@ -299,30 +300,12 @@ function ProjectShell() {
           </div>
         </div>
 
-        <nav className="scrollbar-none -mb-px mt-4 flex gap-1 overflow-x-auto" data-tour="view-tabs">
-          {TABS.map(({ to, end, label, icon: Icon, tour }) => (
-            <NavLink
-              key={label}
-              data-tour={tour}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-semibold transition',
-                  isActive ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'
-                )
-              }
-            >
-              <Icon className="h-4 w-4" />
-              {t(label)}
-            </NavLink>
-          ))}
-        </nav>
+        <ResponsiveTabs tabs={TABS} />
       </div>
 
       {showFilters && (
         <div className="px-4 pt-4 sm:px-6">
-          <div data-tour="filters" className="inline-block max-w-full">
+          <div data-tour="filters" className="block max-w-full sm:inline-block">
             <Filters filters={filters} setFilters={setFilters} />
           </div>
         </div>
