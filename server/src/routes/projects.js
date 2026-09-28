@@ -377,41 +377,52 @@ router.get('/:projectId/flow', requireProject(), async (req, res) => {
   res.json({ days: points });
 });
 
-// ---- GitHub integration (webhook) ------------------------------------------------
+// ---- Git integration (GitHub or GitLab webhook) ------------------------------------
 
-async function githubState(projectId) {
-  const { github } = await Project.findById(projectId).select('+github.secret').lean();
-  const connected = Boolean(github?.secret);
+const GIT_PROVIDERS = ['github', 'gitlab'];
+
+async function gitState(projectId) {
+  const { git } = await Project.findById(projectId).select('+git.secret').lean();
+  const connected = Boolean(git?.secret);
+  const provider = git?.provider ?? 'github';
   return {
     connected,
-    repo: github?.repo ?? '',
-    autoClose: github?.autoClose ?? true,
-    webhookUrl: `${config.apiUrl}/api/webhooks/github/${projectId}`,
-    secret: connected ? github.secret : null,
+    provider,
+    repo: git?.repo ?? '',
+    autoClose: git?.autoClose ?? true,
+    webhookUrl: `${config.apiUrl}/api/webhooks/${provider}/${projectId}`,
+    secret: connected ? git.secret : null,
   };
 }
 
-router.get('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
-  res.json(await githubState(req.project._id));
+router.get('/:projectId/git', requireProject(MANAGERS), async (req, res) => {
+  res.json(await gitState(req.project._id));
 });
 
-// Connect, or create a new secret (the old one stops working)
-router.post('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
+// Connect (body: { provider }), or create a new secret (the old one stops working)
+router.post('/:projectId/git', requireProject(MANAGERS), async (req, res) => {
+  const current = await gitState(req.project._id);
+  const provider = GIT_PROVIDERS.includes(req.body?.provider) ? req.body.provider : current.provider;
   await Project.updateOne(
     { _id: req.project._id },
-    { 'github.secret': crypto.randomBytes(24).toString('hex'), 'github.connectedAt': new Date() }
+    {
+      'git.provider': provider,
+      'git.secret': crypto.randomBytes(24).toString('hex'),
+      'git.connectedAt': new Date(),
+      ...(provider !== current.provider && { 'git.repo': '' }),
+    }
   );
-  res.json(await githubState(req.project._id));
+  res.json(await gitState(req.project._id));
 });
 
-router.patch('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
-  if (req.body?.autoClose !== undefined) await Project.updateOne({ _id: req.project._id }, { 'github.autoClose': Boolean(req.body.autoClose) });
-  res.json(await githubState(req.project._id));
+router.patch('/:projectId/git', requireProject(MANAGERS), async (req, res) => {
+  if (req.body?.autoClose !== undefined) await Project.updateOne({ _id: req.project._id }, { 'git.autoClose': Boolean(req.body.autoClose) });
+  res.json(await gitState(req.project._id));
 });
 
-router.delete('/:projectId/github', requireProject(MANAGERS), async (req, res) => {
-  await Project.updateOne({ _id: req.project._id }, { $unset: { 'github.secret': 1 }, 'github.repo': '', 'github.connectedAt': null });
-  res.json(await githubState(req.project._id));
+router.delete('/:projectId/git', requireProject(MANAGERS), async (req, res) => {
+  await Project.updateOne({ _id: req.project._id }, { $unset: { 'git.secret': 1 }, 'git.repo': '', 'git.connectedAt': null });
+  res.json(await gitState(req.project._id));
 });
 
 // ---- Public read-only link ----------------------------------------------------

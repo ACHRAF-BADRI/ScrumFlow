@@ -61,10 +61,11 @@ const taskSchema = new mongoose.Schema(
     // Subtasks: small steps inside the task, with their own done state
     checklist: [checklistItemSchema],
     attachments: [attachmentSchema],
-    // Commits and pull requests that mention the task key (GitHub webhook)
+    // Commits and pull / merge requests that mention the task key (Git webhooks)
     links: [
       {
-        kind: { type: String, enum: ['commit', 'pr'], required: true },
+        kind: { type: String, enum: ['commit', 'pr'], required: true }, // "pr" = pull request or merge request
+        provider: { type: String, enum: ['github', 'gitlab'], default: 'github' },
         url: { type: String, required: true, maxlength: 500 },
         title: { type: String, maxlength: 200, default: '' },
         ref: { type: String, maxlength: 40, default: '' },

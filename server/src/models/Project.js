@@ -68,8 +68,10 @@ const projectSchema = new mongoose.Schema(
     templates: [templateSchema],
     // Read-only public link (/share/<token>); null = not shared. Only managers can read it.
     shareToken: { type: String, default: null, select: false },
-    // GitHub webhook: the secret signs GitHub's requests; merged PRs can finish tasks
-    github: {
+    // Git integration (GitHub or GitLab webhook): the secret authenticates the
+    // provider's requests; merged pull / merge requests can finish tasks
+    git: {
+      provider: { type: String, enum: ['github', 'gitlab'], default: 'github' },
       secret: { type: String, select: false },
       repo: { type: String, default: '' },
       autoClose: { type: Boolean, default: true },

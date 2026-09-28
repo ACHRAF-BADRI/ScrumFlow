@@ -71,6 +71,35 @@ export const providers = {
       return { id: String(user.id), email: primary?.email ?? null, name: user.name || user.login };
     },
   },
+  gitlab: {
+    enabled: () => Boolean(config.oauth.gitlab),
+    authorizeUrl: (state) =>
+      `${config.gitlabUrl}/oauth/authorize?${new URLSearchParams({
+        client_id: config.oauth.gitlab.clientId,
+        redirect_uri: redirectUri('gitlab'),
+        response_type: 'code',
+        scope: 'read_user',
+        state,
+      })}`,
+    async profile(code) {
+      const { access_token: token } = await json(
+        await fetch(`${config.gitlabUrl}/oauth/token`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({
+            client_id: config.oauth.gitlab.clientId,
+            client_secret: config.oauth.gitlab.clientSecret,
+            code,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri('gitlab'),
+          }),
+        })
+      );
+      const user = await json(await fetch(`${config.gitlabUrl}/api/v4/user`, { headers: { authorization: `Bearer ${token}` } }));
+      // GitLab only fills confirmed_at once the primary email is confirmed
+      return { id: String(user.id), email: user.confirmed_at ? user.email : null, name: user.name || user.username };
+    },
+  },
   microsoft: {
     enabled: () => Boolean(config.oauth.microsoft),
     // "common": personal Microsoft accounts and work or school accounts

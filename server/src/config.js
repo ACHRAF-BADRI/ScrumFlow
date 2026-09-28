@@ -50,10 +50,13 @@ export const config = {
   emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
   // Optional: task attachments are hidden when Cloudinary is not configured
   cloudinary: parseCloudinary(process.env.CLOUDINARY_URL),
-  // Optional: "Sign in with Google / GitHub" buttons appear when their keys are set
+  // Optional: "Sign in with…" buttons appear when their keys are set
+  // gitlab.com by default, or a self-hosted GitLab
+  gitlabUrl: (process.env.GITLAB_URL || 'https://gitlab.com').replace(/\/$/, ''),
   oauth: {
     google: pair('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'),
     github: pair('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'),
     microsoft: pair('MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'),
+    gitlab: pair('GITLAB_CLIENT_ID', 'GITLAB_CLIENT_SECRET'),
   },
 };

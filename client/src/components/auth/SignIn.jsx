@@ -8,7 +8,7 @@ import { useServerConfig } from '../../lib/serverConfig';
 import { Spinner } from '../ui/Feedback';
 
 const GoogleMark = () => (
-  <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
+  <svg viewBox="0 0 48 48" className="h-5 w-5 shrink-0" aria-hidden="true">
     <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
     <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
     <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
@@ -16,14 +16,27 @@ const GoogleMark = () => (
   </svg>
 );
 
-const GitHubMark = () => (
-  <svg viewBox="0 0 16 16" className="h-5 w-5 fill-current" aria-hidden="true">
+export const GitHubMark = () => (
+  <svg viewBox="0 0 16 16" className="h-5 w-5 shrink-0 fill-current" aria-hidden="true">
     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
   </svg>
 );
 
+/** GitLab tanuki */
+export const GitLabMark = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" aria-hidden="true">
+    <path fill="#E24329" d="m12 22.3 4.1-12.6H7.9z" />
+    <path fill="#FC6D26" d="M12 22.3 7.9 9.7H2.2z" />
+    <path fill="#FCA326" d="M2.2 9.7 1 13.5c-.1.3 0 .7.3.9L12 22.3z" />
+    <path fill="#E24329" d="M2.2 9.7h5.7L5.4 2.2c-.1-.4-.7-.4-.8 0z" />
+    <path fill="#FC6D26" d="m12 22.3 4.1-12.6h5.7z" />
+    <path fill="#FCA326" d="m21.8 9.7 1.2 3.8c.1.3 0 .7-.3.9L12 22.3z" />
+    <path fill="#E24329" d="M21.8 9.7h-5.7l2.5-7.5c.1-.4.7-.4.8 0z" />
+  </svg>
+);
+
 const MicrosoftMark = () => (
-  <svg viewBox="0 0 21 21" className="h-5 w-5" aria-hidden="true">
+  <svg viewBox="0 0 21 21" className="h-5 w-5 shrink-0" aria-hidden="true">
     <path fill="#f25022" d="M1 1h9v9H1z" />
     <path fill="#7fba00" d="M11 1h9v9h-9z" />
     <path fill="#00a4ef" d="M1 11h9v9H1z" />
@@ -39,16 +52,17 @@ export function OAuthButtons() {
     ['google', 'Google', GoogleMark],
     ['microsoft', 'Microsoft', MicrosoftMark],
     ['github', 'GitHub', GitHubMark],
+    ['gitlab', 'GitLab', GitLabMark],
   ].filter(([id]) => oauth?.[id]);
   if (!list.length) return null;
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
   return (
     <div className="mt-8 space-y-4">
-      <div className={list.length === 2 ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}>
+      <div className={list.length % 2 === 0 ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}>
         {list.map(([id, name, Mark]) => (
-          <a key={id} href={`${API_URL}/api/auth/oauth/${id}?lang=${lang}`} className="btn-secondary h-11 justify-center" data-testid={`oauth-${id}`}>
-            <Mark /> {t('auth.continueWith', { name })}
+          <a key={id} href={`${API_URL}/api/auth/oauth/${id}?lang=${lang}`} className="btn-secondary h-11 justify-center" data-testid={`oauth-${id}`} aria-label={t('auth.continueWith', { name })}>
+            <Mark /> {list.length > 2 ? name : t('auth.continueWith', { name })}
           </a>
         ))}
       </div>

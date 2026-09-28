@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
       google: { type: String, default: undefined },
       github: { type: String, default: undefined },
       microsoft: { type: String, default: undefined },
+      gitlab: { type: String, default: undefined },
     },
     // Two-step verification with an authenticator app (TOTP)
     twoFactor: {
@@ -64,7 +65,7 @@ userSchema.set('toJSON', {
     delete ret.resetPasswordExpires;
     delete ret.savedFilters;
     if (ret.twoFactor) ret.twoFactor = { enabled: Boolean(ret.twoFactor.enabled) };
-    if (ret.oauth) ret.oauth = { google: Boolean(ret.oauth.google), github: Boolean(ret.oauth.github), microsoft: Boolean(ret.oauth.microsoft) };
+    if (ret.oauth) ret.oauth = { google: Boolean(ret.oauth.google), github: Boolean(ret.oauth.github), microsoft: Boolean(ret.oauth.microsoft), gitlab: Boolean(ret.oauth.gitlab) };
     delete ret.__v;
     return ret;
   },

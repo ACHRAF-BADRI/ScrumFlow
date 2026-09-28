@@ -21,6 +21,8 @@ process.env.CLOUDINARY_URL = `cloudinary://${crypto.randomBytes(6).toString('hex
 process.env.GITHUB_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.GITHUB_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 process.env.GOOGLE_CLIENT_ID = '';
+process.env.GITLAB_CLIENT_ID = crypto.randomBytes(6).toString('hex');
+process.env.GITLAB_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 process.env.MICROSOFT_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.MICROSOFT_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 

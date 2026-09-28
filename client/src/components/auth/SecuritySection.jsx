@@ -90,9 +90,9 @@ export default function SecuritySection({ Section }) {
           )}
         </div>
       </div>
-      {(user.oauth?.google || user.oauth?.github || user.oauth?.microsoft) && (
+      {(user.oauth?.google || user.oauth?.github || user.oauth?.microsoft || user.oauth?.gitlab) && (
         <p className="mt-3 text-xs text-muted">
-          {t('twoFactor.linked', { list: [user.oauth.google && 'Google', user.oauth.microsoft && 'Microsoft', user.oauth.github && 'GitHub'].filter(Boolean).join(', ') })}
+          {t('twoFactor.linked', { list: [user.oauth.google && 'Google', user.oauth.microsoft && 'Microsoft', user.oauth.github && 'GitHub', user.oauth.gitlab && 'GitLab'].filter(Boolean).join(', ') })}
         </p>
       )}
 
