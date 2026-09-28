@@ -83,4 +83,17 @@ describe('projects, team and workflow', () => {
       .send({ statuses: [{ key: 'todo', category: 'todo' }, { key: 'in_progress', category: 'in_progress', wipLimit: 3 }, { key: 'done', category: 'done', wipLimit: 500 }] });
     assert.deepEqual(res.body.project.statuses.map((s) => s.wipLimit), [0, 3, 99]);
   });
+
+  test('migration: the old GitHub setting moves to the Git integration', async () => {
+    const owner = await signUp('Owner');
+    const project = await createProject(owner, 'Legacy');
+    const { default: Project } = await import('../src/models/Project.js');
+    const legacy = `old-${Date.now()}`;
+    await Project.collection.updateOne({ _id: new (await import('mongoose')).default.Types.ObjectId(project._id) }, { $set: { github: { secret: legacy, repo: 'a/b', autoClose: false } }, $unset: { git: 1 } });
+    const { runMigrations } = await import('../src/services/migrations.js');
+    await runMigrations();
+    await runMigrations(); // safe to run twice
+    const git = (await api(owner).get(`/api/projects/${project._id}/git`)).body;
+    assert.deepEqual([git.connected, git.provider, git.repo, git.autoClose, git.secret], [true, 'github', 'a/b', false, legacy]);
+  });
 });

@@ -18,7 +18,7 @@ function stubFetch(routes) {
   };
 }
 
-describe('two-step verification, sign in with GitHub, GitHub webhook', () => {
+describe('two-step verification, sign in with GitHub, GitLab and Microsoft, Git webhooks', () => {
   test('TOTP matches the RFC 6238 test vector', () => {
     // RFC 6238 test key, built here so no key-like text sits in the code
     const secret = base32Encode(Buffer.from('12345678901234567890'));
@@ -55,7 +55,7 @@ describe('two-step verification, sign in with GitHub, GitHub webhook', () => {
 
   test('sign in with GitHub: state is checked, account created or reused by email', async () => {
     const config = (await request.get('/api/config')).body;
-    assert.deepEqual(config.oauth, { google: false, github: true, microsoft: true });
+    assert.deepEqual(config.oauth, { google: false, github: true, gitlab: true, microsoft: true });
     assert.match((await request.get('/api/auth/oauth/google')).headers.location, /\/login\?oauthError=disabled$/);
 
     const start = await request.get('/api/auth/oauth/github?lang=fr');
@@ -105,16 +105,59 @@ describe('two-step verification, sign in with GitHub, GitHub webhook', () => {
     assert.ok(new URL(verified.headers.location).hash.includes('token='), 'verified work email accepted');
   });
 
+  test('sign in with GitLab: only a confirmed email is used', async () => {
+    const stateOf = async () => new URL((await request.get('/api/auth/oauth/gitlab')).headers.location).searchParams.get('state');
+    const start = new URL((await request.get('/api/auth/oauth/gitlab')).headers.location);
+    assert.equal(`${start.origin}${start.pathname}`, 'https://gitlab.com/oauth/authorize');
+    assert.equal(start.searchParams.get('scope'), 'read_user');
+
+    const email = `gl.${Date.now()}@test.io`;
+    stubFetch({ 'https://gitlab.com/oauth/token': { access_token: crypto.randomBytes(16).toString('hex') }, 'https://gitlab.com/api/v4/user': { id: 77, username: 'tanuki', name: 'Tanu Ki', email, confirmed_at: '2024-01-01T00:00:00Z' } });
+    const ok = await request.get(`/api/auth/oauth/gitlab/callback?code=c&state=${await stateOf()}`);
+    const token = new URLSearchParams(new URL(ok.headers.location).hash.slice(1)).get('token');
+    const me = (await request.get('/api/auth/me').set('Authorization', `Bearer ${token}`)).body.user;
+    assert.deepEqual([me.name, me.email, me.oauth.gitlab], ['Tanu Ki', email, true]);
+
+    stubFetch({ 'https://gitlab.com/oauth/token': { access_token: crypto.randomBytes(16).toString('hex') }, 'https://gitlab.com/api/v4/user': { id: 78, username: 'x', email: `new.${Date.now()}@test.io`, confirmed_at: null } });
+    const refused = await request.get(`/api/auth/oauth/gitlab/callback?code=c&state=${await stateOf()}`);
+    assert.match(refused.headers.location, /oauthError=noEmail/);
+  });
+
+  test('GitLab webhook: token checked, commits and merge requests linked, merged MR finishes the task', async () => {
+    const owner = await signUp('Owner');
+    const project = await createProject(owner, 'Apollo');
+    const task = await createTask(owner, project._id, { title: 'Export' });
+    const key = `${project.key}-${task.number}`;
+    const { secret, webhookUrl, provider } = (await api(owner).post(`/api/projects/${project._id}/git`).send({ provider: 'gitlab' })).body;
+    assert.equal(provider, 'gitlab');
+    assert.ok(webhookUrl.endsWith(`/api/webhooks/gitlab/${project._id}`));
+    assert.equal((await request.post(`/api/webhooks/github/${project._id}`).send('{}')).status, 404, 'the GitHub URL is closed for a GitLab project');
+
+    const send = (event, payload, token = secret) =>
+      request.post(`/api/webhooks/gitlab/${project._id}`).set('content-type', 'application/json').set('x-gitlab-event', event).set('x-gitlab-token', token).send(JSON.stringify(payload));
+    const glProject = { path_with_namespace: 'acme/apollo' };
+    assert.equal((await send('Push Hook', { project: glProject, commits: [] }, 'wrong')).status, 401);
+    await send('Push Hook', { project: glProject, commits: [{ id: '1234567890abc', url: 'https://gitlab.com/acme/apollo/-/commit/1234567', message: `Export CSV ${key}`, author: { name: 'Tanu' }, timestamp: new Date().toISOString() }] });
+    const mr = { iid: 5, url: 'https://gitlab.com/acme/apollo/-/merge_requests/5', title: `${key}: export`, description: '', state: 'opened', source_branch: 'export', updated_at: new Date().toISOString() };
+    await send('Merge Request Hook', { project: glProject, user: { username: 'tanu' }, object_attributes: mr });
+    await send('Merge Request Hook', { project: glProject, user: { username: 'tanu' }, object_attributes: { ...mr, state: 'merged', action: 'merge' } });
+
+    const saved = (await api(owner).get(`/api/projects/${project._id}/tasks/${task._id}`)).body.task;
+    assert.deepEqual(saved.links.map((l) => [l.provider, l.kind, l.ref, l.state]), [['gitlab', 'commit', '1234567', 'pushed'], ['gitlab', 'pr', '!5', 'merged']]);
+    assert.equal(saved.status, 'done');
+    assert.equal((await api(owner).get(`/api/projects/${project._id}/git`)).body.repo, 'acme/apollo');
+  });
+
   test('GitHub webhook: signed pushes and PRs link tasks, a merged PR finishes the task', async () => {
     const owner = await signUp('Owner');
     const project = await createProject(owner, 'Apollo');
     const task = await createTask(owner, project._id, { title: 'Login' });
     const key = `${project.key}-${task.number}`;
-    const base = `/api/projects/${project._id}/github`;
+    const base = `/api/projects/${project._id}/git`;
     const member = await signUp('Member');
     await api(owner).post(`/api/projects/${project._id}/members`).send({ email: member.user.email });
     assert.equal((await api(member).get(base)).status, 403);
-    const { secret, webhookUrl } = (await api(owner).post(base)).body;
+    const { secret, webhookUrl } = (await api(owner).post(base).send({ provider: 'github' })).body;
     assert.ok(webhookUrl.endsWith(`/api/webhooks/github/${project._id}`));
 
     const send = (event, payload, signWith = secret) => {

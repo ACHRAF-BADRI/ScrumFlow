@@ -41,3 +41,7 @@ services:
         sync: false
       - key: MICROSOFT_CLIENT_SECRET
         sync: false
+      - key: GITLAB_CLIENT_ID
+        sync: false
+      - key: GITLAB_CLIENT_SECRET
+        sync: false

@@ -20,7 +20,7 @@ import meRoutes from './routes/me.js';
 import templateRoutes from './routes/templates.js';
 import publicRoutes from './routes/public.js';
 import oauthRoutes from './routes/oauth.js';
-import webhookRoutes from './routes/github.js';
+import webhookRoutes from './routes/webhooks.js';
 import { enabledProviders } from './services/oauth.js';
 import { attachmentsEnabled } from './services/cloudinary.js';
 import { emitProjectChanged } from './realtime.js';

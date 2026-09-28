@@ -31,10 +31,15 @@ function describe(a, t, statusMap) {
       return [`activity.${a.type.replace('.', '_')}`, { ...base, text: d.text }];
     case 'attachment.added':
       return ['activity.attachment_added', { ...base, text: d.name }];
-    case 'github.linked':
-      return [d.kind === 'pr' ? 'activity.github_pr' : 'activity.github_commit', { ...base, text: d.ref }];
+    case 'git.linked':
+    case 'github.linked': {
+      const provider = d.provider ?? 'github';
+      if (d.kind !== 'pr') return ['activity.git_commit', { ...base, text: d.ref }];
+      return [provider === 'gitlab' ? 'activity.git_mr' : 'activity.git_pr', { ...base, text: d.ref }];
+    }
+    case 'git.closed':
     case 'github.closed':
-      return ['activity.github_closed', { ...base, text: d.ref }];
+      return ['activity.git_closed', { ...base, text: d.ref, provider: d.provider === 'gitlab' ? 'GitLab' : 'GitHub' }];
     case 'project.shared':
     case 'project.unshared':
       return [`activity.${a.type.replace('.', '_')}`, base];
