@@ -4,7 +4,7 @@
 
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
-### 🔗 Live app: [scrumflow.pages.dev](https://scrumflow.pages.dev/register)
+### Live app: [scrumflow.pages.dev](https://scrumflow.pages.dev/register)
 
 Create your free account, then start a project and invite your team.
 
