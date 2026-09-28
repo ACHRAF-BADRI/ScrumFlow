@@ -38,7 +38,7 @@ export const config = {
   mongoUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-  // Keep only the origin, so "https://site.netlify.app/login" or a trailing "/" still match
+  // Keep only the origin, so "https://site.pages.dev/login" or a trailing "/" still match
   clientUrls: (process.env.CLIENT_URL || 'http://localhost:5173')
     .split(',')
     .map((url) => {

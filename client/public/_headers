@@ -1,4 +1,4 @@
-# Read by Cloudflare Pages (and Netlify): the installable app must always get the latest service worker
+# Read by Cloudflare Pages: the installable app must always get the latest service worker
 /sw.js
   Cache-Control: no-cache
 
