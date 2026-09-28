@@ -86,13 +86,13 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 
 | Layer | Tech | Hosting |
 | --- | --- | --- |
-| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client, marked + DOMPurify, qrcode, service worker | **Netlify** |
+| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client, marked + DOMPurify, qrcode, service worker | **Cloudflare Pages** |
 | API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend, TOTP, OAuth 2 (Google, Microsoft, GitHub, GitLab, Bitbucket), GitHub and GitLab webhooks | **Render** |
 | Files | Cloudinary (optional) | **Cloudinary** |
 | Database | MongoDB | **MongoDB Atlas** |
 
 ```
-├── client/          React app (Netlify)
+├── client/          React app (Cloudflare Pages)
 │   └── src/
 │       ├── components/   ui/ (badges, modal, popover, tooltip, toaster, illustrations, logo…),
 │       │                 tasks/, sprints/, layout/
@@ -149,7 +149,7 @@ GitHub Actions runs both suites and the production build on every push to `main`
 
 ### 2. Render (API)
 1. Render dashboard → **New → Blueprint** → select this repo (it reads `render.yaml`).
-2. Fill in `MONGODB_URI` (Atlas string), `CLIENT_URL` (your Netlify URL, which you can set after step 3) and `RESEND_API_KEY` (for emails, optional). `JWT_SECRET` is generated for you, and `EMAIL_FROM` defaults to `onboarding@resend.dev` until you verify a domain in Resend.
+2. Fill in `MONGODB_URI` (Atlas string), `CLIENT_URL` (your front-end URL, which you can set after step 3) and `RESEND_API_KEY` (for emails, optional). `JWT_SECRET` is generated for you, and `EMAIL_FROM` defaults to `onboarding@resend.dev` until you verify a domain in Resend.
 3. Check `https://<your-service>.onrender.com/api/health` → `{"status":"ok","db":"connected"}`.
 
 > **Emails:** until a domain is verified in Resend (Domains → Add domain, then add the DNS records it shows), Resend only delivers to the email of your Resend account. The app still shows the invitation link so it can be shared by hand. Once the domain is verified, set `EMAIL_FROM` to an address on it, e.g. `ScrumFlow <noreply@yourdomain.com>`.
@@ -172,10 +172,13 @@ Each one stays hidden in the app until its keys are set on Render (and in `serve
 
 Render sets `RENDER_EXTERNAL_URL` itself, which the API uses to build these URLs; elsewhere set `API_URL`. The Git integration needs no key: a project admin picks GitHub or GitLab in Team & settings and pastes the webhook URL and secret in the repository settings. Two-step verification, planning poker, exports, the public link and the installable app work without any setup.
 
-### 3. Netlify (front end)
-1. Netlify → **Add new site → Import from Git** → select this repo (it reads `netlify.toml`: base `client`, publish `dist`).
-2. **Environment variables**: `VITE_API_URL=https://<your-service>.onrender.com`.
-3. Deploy, then put the Netlify URL into `CLIENT_URL` on Render. Several origins can be comma-separated. Netlify deploy previews of that site are allowed automatically.
+### 3. Cloudflare Pages (front end)
+1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → select this repo.
+2. Build settings: framework preset **Vite**, root directory **`client`**, build command **`npm run build`**, output directory **`dist`**.
+3. **Environment variables**: `VITE_API_URL=https://<your-service>.onrender.com`.
+4. Deploy, then put the Pages URL (e.g. `https://<project>.pages.dev`) first in `CLIENT_URL` on Render. Several origins can be comma-separated; preview deployments of that project (`https://<preview>.<project>.pages.dev`) are allowed automatically.
+
+`client/public/_redirects` sends every route to the app and `client/public/_headers` keeps the service worker fresh. The same files also work on Netlify (`netlify.toml` is kept for that).
 
 ## API overview
 
