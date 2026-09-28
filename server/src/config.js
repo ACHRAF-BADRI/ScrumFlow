@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { parseCloudinaryUrl } from './utils/cloudinaryUrl.js';
 
 dotenv.config({ quiet: true });
 
@@ -10,17 +11,9 @@ for (const key of required) {
   }
 }
 
-/** cloudinary://<api key>:<api secret>@<cloud name>, as shown on the Cloudinary dashboard */
-function parseCloudinary(value) {
-  if (!value) return null;
-  try {
-    const url = new URL(value);
-    if (url.protocol !== 'cloudinary:' || !url.username || !url.password || !url.hostname) return null;
-    return { apiKey: decodeURIComponent(url.username), apiSecret: decodeURIComponent(url.password), cloudName: url.hostname };
-  } catch {
-    return null;
-  }
-}
+const cloudinary = parseCloudinaryUrl(process.env.CLOUDINARY_URL);
+// Set but unusable: say why in the logs (never the value), attachments stay off
+if (cloudinary.reason) console.warn(`CLOUDINARY_URL ${cloudinary.reason}: attachments are turned off`);
 
 const pair = (id, secret) => (process.env[id] && process.env[secret] ? { clientId: process.env[id], clientSecret: process.env[secret] } : null);
 const port = Number(process.env.PORT) || 5000;
@@ -49,7 +42,7 @@ export const config = {
   resendApiKey: process.env.RESEND_API_KEY || null,
   emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
   // Optional: task attachments are hidden when Cloudinary is not configured
-  cloudinary: parseCloudinary(process.env.CLOUDINARY_URL),
+  cloudinary: cloudinary.config,
   // Optional: "Sign in with…" buttons appear when their keys are set
   // gitlab.com by default, or a self-hosted GitLab
   gitlabUrl: (process.env.GITLAB_URL || 'https://gitlab.com').replace(/\/$/, ''),
