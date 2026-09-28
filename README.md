@@ -73,6 +73,7 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Account**: profile, password, email notifications, favorite projects, and account deletion confirmed by typing your name
 - **Sign in with Google, Microsoft, GitHub, GitLab or Bitbucket** (same verified email = same account; gitlab.com or a self-hosted GitLab) and **two-step verification** with an authenticator app, with one-time recovery codes
 - **Git integration (GitHub or GitLab)**: connect a repository with a webhook; commits and pull or merge requests that mention a task key (`APO-12`) appear on the task, and merging can move it to done
+- **AI suggestions** (optional, free with Groq or Gemini): suggest checklist steps and acceptance criteria for a story, suggest story points from similar finished tasks, and draft a sprint review with retrospective cards. Suggestions are only a preview until you add them, with a daily limit per project
 - **Installable app (PWA)**: install ScrumFlow on a phone or desktop; pages already opened stay readable offline
 - **Real time** (Socket.io): teammates' changes appear instantly without reloading, and the project header shows who is viewing it right now
 - **Notification bell**: assignments, @mentions and "added to a project" arrive live with a toast; open one to jump to the task, or mark all as read
@@ -103,7 +104,7 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │   └── src/
 │       ├── models/       User, Project, Sprint, Task, Invitation, Notification, Activity
 │       ├── routes/       auth, oauth, projects (+members, stats, flow, share, git), sprints, tasks, templates, public, webhooks (GitHub, GitLab)
-│       ├── services/     activity, notify, poker, recurring, cloudinary, oauth, migrations
+│       ├── services/     activity, notify, poker, recurring, cloudinary, oauth, migrations, ai
 │       └── seed.js       sample data for local development
 ├── netlify.toml
 └── render.yaml
@@ -165,6 +166,7 @@ Each one stays hidden in the app until its keys are set on Render (and in `serve
 | Sign in with Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud console, Credentials, OAuth client ID (web). Redirect URI: `https://<your-service>.onrender.com/api/auth/oauth/google/callback` |
 | Sign in with Microsoft | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Microsoft Entra admin center, App registrations (accounts in any organizational directory and personal accounts). Redirect URI (Web): `https://<your-service>.onrender.com/api/auth/oauth/microsoft/callback`. Add the optional ID token claims `email` and `xms_edov` so work accounts can sign in |
 | Sign in with GitLab | `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET`, optional `GITLAB_URL` (self-hosted, default `https://gitlab.com`) | GitLab, Preferences (or Edit profile), Applications, Add new application, scope `read_user`. Redirect URI: `https://<your-service>.onrender.com/api/auth/oauth/gitlab/callback` |
+| AI suggestions | `AI_PROVIDER` (`groq`, `gemini`, `openrouter` or `anthropic`) and its key: `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY` or `ANTHROPIC_API_KEY`. Optional: `AI_MODEL`, `AI_DAILY_LIMIT` (per project, default 30) | Groq: console.groq.com, API Keys (free tier). Gemini: aistudio.google.com, Get API key (free tier). Default models: Groq `openai/gpt-oss-120b`, Gemini `gemini-2.5-flash`; set `AI_MODEL` if a provider retires one |
 | Sign in with Bitbucket | `BITBUCKET_CLIENT_ID`, `BITBUCKET_CLIENT_SECRET` | Bitbucket, workspace settings, OAuth clients, Create OAuth client. Callback URL: `https://<your-service>.onrender.com/api/auth/oauth/bitbucket/callback`, permissions Account: Email and Read (one callback URL per client: create a second client for localhost) |
 | Sign in with GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, Settings, Developer settings, OAuth Apps. Callback URL: `https://<your-service>.onrender.com/api/auth/oauth/github/callback` |
 
@@ -213,6 +215,7 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | GET/POST/DELETE | `/projects/:id/share` · GET `/public/:token` | Public read-only link (admin) · the shared board, no account |
 | GET/POST/PATCH/DELETE | `/projects/:id/git` · POST `/webhooks/github/:projectId` · `/webhooks/gitlab/:projectId` | Git integration settings (admin, `{ provider: 'github' \| 'gitlab' }`) · webhooks from GitHub (signed) and GitLab (secret token) |
 | GET/POST/DELETE | `/me/filters[/:filterId]` | Saved views (per project) |
+| POST | `/projects/:id/ai/tasks/:taskId/breakdown` · `/estimate` · `/projects/:id/ai/sprints/:sprintId/summary` | AI suggestions (never saved by themselves) |
 
 Realtime events (Socket.io, same JWT in the handshake): `project:changed`, `presence`, `notification`, `projects:changed`, and `poker:state` for planning poker (`poker:start`, `poker:vote`, `poker:reveal`, `poker:restart`, `poker:end` from the client). The socket only says *when* to refresh; data always comes from the REST API.
 

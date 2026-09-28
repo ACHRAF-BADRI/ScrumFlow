@@ -15,6 +15,19 @@ const cloudinary = parseCloudinaryUrl(process.env.CLOUDINARY_URL);
 // Set but unusable: say why in the logs (never the value), attachments stay off
 if (cloudinary.reason) console.warn(`CLOUDINARY_URL ${cloudinary.reason}: attachments are turned off`);
 
+/**
+ * AI provider: AI_PROVIDER (groq, gemini, openrouter, anthropic), or the first
+ * one whose key is set. AI_MODEL overrides the default model.
+ */
+const AI_KEYS = { groq: 'GROQ_API_KEY', gemini: 'GEMINI_API_KEY', openrouter: 'OPENROUTER_API_KEY', anthropic: 'ANTHROPIC_API_KEY' };
+function aiConfig() {
+  const wanted = String(process.env.AI_PROVIDER ?? '').trim().toLowerCase();
+  const provider = AI_KEYS[wanted] ? wanted : Object.keys(AI_KEYS).find((name) => process.env[AI_KEYS[name]]);
+  const apiKey = provider && process.env[AI_KEYS[provider]]?.trim();
+  if (!apiKey) return null;
+  return { provider, apiKey, model: process.env.AI_MODEL?.trim() || null, dailyLimit: Math.max(1, Number(process.env.AI_DAILY_LIMIT) || 30) };
+}
+
 const pair = (id, secret) => (process.env[id] && process.env[secret] ? { clientId: process.env[id], clientSecret: process.env[secret] } : null);
 const port = Number(process.env.PORT) || 5000;
 
@@ -43,6 +56,8 @@ export const config = {
   emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
   // Optional: task attachments are hidden when Cloudinary is not configured
   cloudinary: cloudinary.config,
+  // Optional: AI suggestions appear when a provider key is set
+  ai: aiConfig(),
   // Optional: "Sign in with…" buttons appear when their keys are set
   // gitlab.com by default, or a self-hosted GitLab
   gitlabUrl: (process.env.GITLAB_URL || 'https://gitlab.com').replace(/\/$/, ''),

@@ -25,6 +25,10 @@ process.env.GITLAB_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.GITLAB_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 process.env.BITBUCKET_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.BITBUCKET_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
+// Simulated AI provider (fetch is stubbed in ai.test.js), small daily limit to test it
+process.env.AI_PROVIDER = 'groq';
+process.env.GROQ_API_KEY = `test-${crypto.randomBytes(12).toString('hex')}`;
+process.env.AI_DAILY_LIMIT = '4';
 process.env.MICROSOFT_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.MICROSOFT_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 

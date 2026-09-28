@@ -16,6 +16,7 @@ import { MentionTextarea } from './Mentions';
 import Checklist from './Checklist';
 import Dependencies from './Dependencies';
 import DevLinks from './DevLinks';
+import { AiEstimate } from '../ai/Ai';
 import Attachments, { uploadErrorMessage } from './Attachments';
 import { SaveAsTemplateButton } from './Templates';
 import { Markdown, MarkdownEditor } from '../ui/Markdown';
@@ -352,7 +353,12 @@ export default function TaskDrawer({ taskId, onClose }) {
             </Field>
           )}
           <Field label={t('task.points')}>
-            <PointsPicker value={task.points} onChange={(points) => update({ points })} />
+            <div className="flex items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <PointsPicker value={task.points} onChange={(points) => update({ points })} />
+              </div>
+              {task.type !== 'epic' && <AiEstimate task={task} />}
+            </div>
           </Field>
           <Field label={t('task.dueDate')}>
             <label className="flex min-h-[36px] items-center gap-2 rounded-lg border border-transparent px-2.5 transition focus-within:border-brand hover:border-line hover:bg-surface-2">
