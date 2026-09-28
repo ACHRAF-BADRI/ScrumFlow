@@ -71,7 +71,7 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Themes**: light / dark / system, saved on the profile, no flash on load
 - **Emails** (Resend): invitations, forgot password (1 hour link), and notifications when a task is assigned to you or someone mentions you. Each user can turn notifications off in Account settings.
 - **Account**: profile, password, email notifications, favorite projects, and account deletion confirmed by typing your name
-- **Sign in with Google, Microsoft, GitHub or GitLab** (same verified email = same account; gitlab.com or a self-hosted GitLab) and **two-step verification** with an authenticator app, with one-time recovery codes
+- **Sign in with Google, Microsoft, GitHub, GitLab or Bitbucket** (same verified email = same account; gitlab.com or a self-hosted GitLab) and **two-step verification** with an authenticator app, with one-time recovery codes
 - **Git integration (GitHub or GitLab)**: connect a repository with a webhook; commits and pull or merge requests that mention a task key (`APO-12`) appear on the task, and merging can move it to done
 - **Installable app (PWA)**: install ScrumFlow on a phone or desktop; pages already opened stay readable offline
 - **Real time** (Socket.io): teammates' changes appear instantly without reloading, and the project header shows who is viewing it right now
@@ -86,7 +86,7 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 | Layer | Tech | Hosting |
 | --- | --- | --- |
 | Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client, marked + DOMPurify, qrcode, service worker | **Netlify** |
-| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend, TOTP, OAuth 2 (Google, Microsoft, GitHub, GitLab), GitHub and GitLab webhooks | **Render** |
+| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend, TOTP, OAuth 2 (Google, Microsoft, GitHub, GitLab, Bitbucket), GitHub and GitLab webhooks | **Render** |
 | Files | Cloudinary (optional) | **Cloudinary** |
 | Database | MongoDB | **MongoDB Atlas** |
 
@@ -165,6 +165,7 @@ Each one stays hidden in the app until its keys are set on Render (and in `serve
 | Sign in with Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud console, Credentials, OAuth client ID (web). Redirect URI: `https://<your-service>.onrender.com/api/auth/oauth/google/callback` |
 | Sign in with Microsoft | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Microsoft Entra admin center, App registrations (accounts in any organizational directory and personal accounts). Redirect URI (Web): `https://<your-service>.onrender.com/api/auth/oauth/microsoft/callback`. Add the optional ID token claims `email` and `xms_edov` so work accounts can sign in |
 | Sign in with GitLab | `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET`, optional `GITLAB_URL` (self-hosted, default `https://gitlab.com`) | GitLab, Preferences (or Edit profile), Applications, Add new application, scope `read_user`. Redirect URI: `https://<your-service>.onrender.com/api/auth/oauth/gitlab/callback` |
+| Sign in with Bitbucket | `BITBUCKET_CLIENT_ID`, `BITBUCKET_CLIENT_SECRET` | Bitbucket, workspace settings, OAuth clients, Create OAuth client. Callback URL: `https://<your-service>.onrender.com/api/auth/oauth/bitbucket/callback`, permissions Account: Email and Read (one callback URL per client: create a second client for localhost) |
 | Sign in with GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, Settings, Developer settings, OAuth Apps. Callback URL: `https://<your-service>.onrender.com/api/auth/oauth/github/callback` |
 
 Render sets `RENDER_EXTERNAL_URL` itself, which the API uses to build these URLs; elsewhere set `API_URL`. The Git integration needs no key: a project admin picks GitHub or GitLab in Team & settings and pastes the webhook URL and secret in the repository settings. Two-step verification, planning poker, exports, the public link and the installable app work without any setup.
@@ -204,7 +205,7 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | GET · POST · PATCH | `/notifications` · `/notifications/read-all` · `/notifications/:id/read` | Bell: latest notifications / mark as read |
 | PATCH · POST · DELETE | `/auth/me` · `/auth/me/password` · `/auth/me` | Profile / change password / delete account |
 | POST | `/auth/2fa` · `/auth/me/2fa/setup` · `/auth/me/2fa/enable` · `/auth/me/2fa/disable` | Two-step verification (login code, set up, turn on or off) |
-| GET | `/auth/oauth/:provider` · `/auth/oauth/:provider/callback` | Sign in with Google, Microsoft, GitHub or GitLab |
+| GET | `/auth/oauth/:provider` · `/auth/oauth/:provider/callback` | Sign in with Google, Microsoft, GitHub, GitLab or Bitbucket |
 | GET | `/config` | Optional features turned on (attachments, sign in providers) |
 | GET | `/projects/:id/stats?sprint=` · `/projects/:id/flow` | Burndown and burnup of a sprint · cumulative flow |
 | GET/POST/PATCH/DELETE | `/projects/:id/templates[/:templateId]` | Task templates and their repeat rule |

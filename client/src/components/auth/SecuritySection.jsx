@@ -8,11 +8,16 @@ import { api, errorMessage } from '../../lib/api';
 import { downloadText } from '../../lib/exportCsv';
 import { Modal } from '../ui/Modal';
 
+const PROVIDER_NAMES = { google: 'Google', microsoft: 'Microsoft', github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' };
+
 /** Two-step verification: scan a QR code, confirm with a code, keep the recovery codes. */
 export default function SecuritySection({ Section }) {
   const { t } = useTranslation();
   const { user, setUser } = useAuth();
   const enabled = Boolean(user.twoFactor?.enabled);
+  const linked = Object.entries(user.oauth ?? {})
+    .filter(([, on]) => on)
+    .map(([id]) => PROVIDER_NAMES[id] ?? id);
   const [setup, setSetup] = useState(null); // { secret, qr }
   const [codes, setCodes] = useState(null);
   const [code, setCode] = useState('');
@@ -90,9 +95,9 @@ export default function SecuritySection({ Section }) {
           )}
         </div>
       </div>
-      {(user.oauth?.google || user.oauth?.github || user.oauth?.microsoft || user.oauth?.gitlab) && (
+      {linked.length > 0 && (
         <p className="mt-3 text-xs text-muted">
-          {t('twoFactor.linked', { list: [user.oauth.google && 'Google', user.oauth.microsoft && 'Microsoft', user.oauth.github && 'GitHub', user.oauth.gitlab && 'GitLab'].filter(Boolean).join(', ') })}
+          {t('twoFactor.linked', { list: linked.join(', ') })}
         </p>
       )}
 

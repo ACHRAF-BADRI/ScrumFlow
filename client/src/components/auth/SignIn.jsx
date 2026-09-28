@@ -35,6 +35,12 @@ export const GitLabMark = () => (
   </svg>
 );
 
+const BitbucketMark = () => (
+  <svg viewBox="0 0 32 32" className="h-5 w-5 shrink-0" aria-hidden="true">
+    <path fill="#2684FF" d="M2 3.5a1 1 0 0 0-1 1.2l4 24.3a1.4 1.4 0 0 0 1.4 1.2h19.2a1 1 0 0 0 1-.9l4-24.6a1 1 0 0 0-1-1.2zm16.8 17.6h-6.1l-1.7-8.7h9.3z" />
+  </svg>
+);
+
 const MicrosoftMark = () => (
   <svg viewBox="0 0 21 21" className="h-5 w-5 shrink-0" aria-hidden="true">
     <path fill="#f25022" d="M1 1h9v9H1z" />
@@ -53,16 +59,19 @@ export function OAuthButtons() {
     ['microsoft', 'Microsoft', MicrosoftMark],
     ['github', 'GitHub', GitHubMark],
     ['gitlab', 'GitLab', GitLabMark],
+    ['bitbucket', 'Bitbucket', BitbucketMark],
   ].filter(([id]) => oauth?.[id]);
   if (!list.length) return null;
   const lang = i18n.language?.startsWith('fr') ? 'fr' : 'en';
 
   return (
     <div className="mt-8 space-y-4">
-      <div className={list.length % 2 === 0 ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}>
-        {list.map(([id, name, Mark]) => (
-          <a key={id} href={`${API_URL}/api/auth/oauth/${id}?lang=${lang}`} className="btn-secondary h-11 justify-center" data-testid={`oauth-${id}`} aria-label={t('auth.continueWith', { name })}>
-            <Mark /> {list.length > 2 ? name : t('auth.continueWith', { name })}
+      <div className={list.length > 1 && list.length !== 3 ? 'grid gap-2 sm:grid-cols-2' : 'grid gap-2'}>
+        {list.map(([id, name, Mark], index) => (
+          <a
+            key={id}
+            style={list.length > 3 && list.length % 2 === 1 && index === list.length - 1 ? { gridColumn: '1 / -1' } : undefined} href={`${API_URL}/api/auth/oauth/${id}?lang=${lang}`} className="btn-secondary h-11 justify-center" data-testid={`oauth-${id}`} aria-label={t('auth.continueWith', { name })}>
+            <Mark /> {list.length > 3 ? name : t('auth.continueWith', { name })}
           </a>
         ))}
       </div>

@@ -51,5 +51,6 @@ export const config = {
     github: pair('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'),
     microsoft: pair('MICROSOFT_CLIENT_ID', 'MICROSOFT_CLIENT_SECRET'),
     gitlab: pair('GITLAB_CLIENT_ID', 'GITLAB_CLIENT_SECRET'),
+    bitbucket: pair('BITBUCKET_CLIENT_ID', 'BITBUCKET_CLIENT_SECRET'),
   },
 };
