@@ -98,6 +98,8 @@ const en = {
     activity: 'Activity',
     history: 'History',
     team: 'Team & settings',
+    more: 'More',
+    label: 'Project views',
   },
   status: {
     todo: 'To do',
