@@ -4,7 +4,7 @@
 
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
-### 🔗 Live app: [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app/register)
+### 🔗 Live app: [scrumflow.pages.dev](https://scrumflow.pages.dev/register)
 
 Create your free account, then start a project and invite your team.
 
@@ -106,7 +106,6 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │       ├── routes/       auth, oauth, projects (+members, stats, flow, share, git), sprints, tasks, templates, public, webhooks (GitHub, GitLab)
 │       ├── services/     activity, notify, poker, recurring, cloudinary, oauth, migrations, ai
 │       └── seed.js       sample data for local development
-├── netlify.toml
 └── render.yaml
 ```
 
@@ -178,7 +177,7 @@ Render sets `RENDER_EXTERNAL_URL` itself, which the API uses to build these URLs
 3. **Environment variables**: `VITE_API_URL=https://<your-service>.onrender.com`.
 4. Deploy, then put the Pages URL (e.g. `https://<project>.pages.dev`) first in `CLIENT_URL` on Render. Several origins can be comma-separated; preview deployments of that project (`https://<preview>.<project>.pages.dev`) are allowed automatically.
 
-`client/public/_redirects` sends every route to the app and `client/public/_headers` keeps the service worker fresh. The same files also work on Netlify (`netlify.toml` is kept for that).
+`client/public/_redirects` sends every route to the app and `client/public/_headers` keeps the service worker fresh.
 
 ## API overview
 
@@ -240,7 +239,7 @@ ScrumFlow is **source available** under the [PolyForm Noncommercial License 1.0.
 
 - **Free for noncommercial use:** personal projects, learning, school and university work, research, charities and other noncommercial organizations can read, run, modify and share it.
 - **Not for commercial use:** selling it, offering it as a paid or hosted service, or using it inside a company for business purposes needs a separate commercial license. Contact **ACHRAF EL BADRI** through [github.com/ACHRAF-BADRI](https://github.com/ACHRAF-BADRI).
-- The official hosted version is [scrumflow-board.netlify.app](https://scrumflow-board.netlify.app).
+- The official hosted version is [scrumflow.pages.dev](https://scrumflow.pages.dev).
 
 Copyright (c) 2026 ACHRAF EL BADRI. Anyone sharing the code must keep the `Required Notice` line at the top of the [LICENSE](LICENSE) file.
 
