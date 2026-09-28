@@ -29,6 +29,17 @@ function describe(a, t, statusMap) {
     case 'checklist.checked':
     case 'checklist.unchecked':
       return [`activity.${a.type.replace('.', '_')}`, { ...base, text: d.text }];
+    case 'attachment.added':
+      return ['activity.attachment_added', { ...base, text: d.name }];
+    case 'github.linked':
+      return [d.kind === 'pr' ? 'activity.github_pr' : 'activity.github_commit', { ...base, text: d.ref }];
+    case 'github.closed':
+      return ['activity.github_closed', { ...base, text: d.ref }];
+    case 'project.shared':
+    case 'project.unshared':
+      return [`activity.${a.type.replace('.', '_')}`, base];
+    case 'task.recurring':
+      return ['activity.recurring', { ...base, text: d.template }];
     case 'sprint.created':
     case 'sprint.started':
     case 'sprint.deleted':

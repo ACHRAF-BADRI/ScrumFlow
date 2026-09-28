@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import clsx from 'clsx';
-import { Activity, CalendarDays, Filter, History, Zap, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
+import { Activity, CalendarDays, Coffee, Download, FileSpreadsheet, FileText, Spade, Filter, History, Zap, KanbanSquare, LayoutDashboard, Plus, Search, Table2, Users, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ProjectProvider, useProject } from '../context/ProjectContext';
@@ -14,11 +14,16 @@ import { useEpics } from '../components/tasks/Epics';
 import { useAutoTour } from '../components/tour/TourProvider';
 import Tooltip from '../components/ui/Tooltip';
 import NewTaskModal from '../components/tasks/NewTaskModal';
+import { EMPTY_FILTERS, MoreFilters, SavedViews, hasFilters } from '../components/SavedFilters';
+import { downloadText, tasksToCsv } from '../lib/exportCsv';
+import { useStatuses } from '../hooks/useStatuses';
 
 const TABS = [
   { to: '', end: true, label: 'views.table', icon: Table2 },
   { to: 'board', label: 'views.board', icon: KanbanSquare, tour: 'tab-board' },
   { to: 'calendar', label: 'views.calendar', icon: CalendarDays },
+  { to: 'standup', label: 'views.standup', icon: Coffee },
+  { to: 'poker', label: 'views.poker', icon: Spade },
   { to: 'dashboard', label: 'views.dashboard', icon: LayoutDashboard },
   { to: 'activity', label: 'views.activity', icon: Activity },
   { to: 'history', label: 'views.history', icon: History },
@@ -29,7 +34,7 @@ function Filters({ filters, setFilters }) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { members, memberById } = useProject();
-  const active = filters.search || filters.assignee || filters.epic;
+  const active = hasFilters(filters);
   const { epics, byId: epicById } = useEpics();
   const selected = filters.assignee === 'unassigned' ? null : memberById[filters.assignee];
 
@@ -86,13 +91,75 @@ function Filters({ filters, setFilters }) {
           )}
         </Popover>
       )}
+      <MoreFilters filters={filters} setFilters={setFilters} />
+      <SavedViews filters={filters} setFilters={setFilters} />
       {active && (
-        <button type="button" className="btn-ghost h-9 px-2.5" onClick={() => setFilters({ search: '', assignee: null, epic: null })}>
+        <button type="button" className="btn-ghost h-9 px-2.5" onClick={() => setFilters(EMPTY_FILTERS)}>
           <X className="h-4 w-4" />
           <span className="hidden sm:inline">{t('common.clearFilters')}</span>
         </button>
       )}
     </div>
+  );
+}
+
+function ExportMenu({ filterTasks }) {
+  const { t } = useTranslation();
+  const { project, tasks, sprints, activeSprint } = useProject();
+  const { map: statusMap } = useStatuses();
+  const reportSprint = activeSprint ?? sprints.filter((s) => s.status === 'completed').at(-1);
+
+  const csv = (list, suffix) => {
+    const text = tasksToCsv({ tasks: list, project, sprints, statusMap, t });
+    const date = new Date().toISOString().slice(0, 10);
+    downloadText(`${project.key}-${suffix}-${date}.csv`, text);
+  };
+  const filtered = filterTasks(tasks);
+
+  return (
+    <Popover
+      width={260}
+      align="end"
+      trigger={({ toggle, ref }) => (
+        <Tooltip label={t('export.title')}>
+          <button ref={ref} type="button" className="btn-icon h-10 w-10" onClick={toggle} aria-label={t('export.title')} data-testid="export-menu">
+            <Download className="h-[18px] w-[18px]" />
+          </button>
+        </Tooltip>
+      )}
+    >
+      {({ close }) => (
+        <div>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              csv(tasks, 'tasks');
+              close();
+            }}
+          >
+            <FileSpreadsheet className="h-4 w-4 text-[#00c875]" /> {t('export.allCsv', { count: tasks.length })}
+          </button>
+          {filtered.length !== tasks.length && (
+            <button
+              type="button"
+              className="menu-item"
+              onClick={() => {
+                csv(filtered, 'filtered');
+                close();
+              }}
+            >
+              <FileSpreadsheet className="h-4 w-4 text-[#00c875]" /> {t('export.filteredCsv', { count: filtered.length })}
+            </button>
+          )}
+          {reportSprint && (
+            <Link to={`report?sprint=${reportSprint._id}`} className="menu-item" onClick={close}>
+              <FileText className="h-4 w-4 text-[#e2445c]" /> {t('export.report', { name: reportSprint.name })}
+            </Link>
+          )}
+        </div>
+      )}
+    </Popover>
   );
 }
 
@@ -103,9 +170,9 @@ function ProjectShell() {
   const watching = viewers.filter((v) => v._id !== user._id);
   const location = useLocation();
   // The project tour explains the table view, so only start it there
-  useAutoTour('project', Boolean(project) && !/\/(board|dashboard|activity|history|team)$/.test(location.pathname));
+  useAutoTour('project', Boolean(project) && !/\/(board|calendar|standup|poker|dashboard|activity|history|team)$/.test(location.pathname));
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState({ search: '', assignee: null, epic: null });
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
   const [newTask, setNewTask] = useState(null); // null = closed, object = defaults
 
   const openTaskId = searchParams.get('task');
@@ -145,6 +212,9 @@ function ProjectShell() {
         if (filters.epic && task.epic !== filters.epic && task._id !== filters.epic) return false;
         if (filters.assignee === 'unassigned' && task.assignee) return false;
         if (filters.assignee && filters.assignee !== 'unassigned' && task.assignee?._id !== filters.assignee) return false;
+        if (filters.priority && task.priority !== filters.priority) return false;
+        if (filters.type && task.type !== filters.type) return false;
+        if (filters.label && !task.labels?.includes(filters.label)) return false;
         if (!q) return true;
         return (
           task.title.toLowerCase().includes(q) ||
@@ -159,8 +229,8 @@ function ProjectShell() {
   const outletContext = useMemo(
     () => ({
       filterTasks,
-      filtersActive: Boolean(filters.search || filters.assignee || filters.epic),
-      clearFilters: () => setFilters({ search: '', assignee: null, epic: null }),
+      filtersActive: hasFilters(filters),
+      clearFilters: () => setFilters(EMPTY_FILTERS),
       openTask,
       openNewTask: (defaults = {}) => setNewTask(defaults),
     }),
@@ -187,7 +257,7 @@ function ProjectShell() {
     );
   }
 
-  const showFilters = !/\/(dashboard|activity|history|team)$/.test(location.pathname);
+  const showFilters = !/\/(standup|poker|dashboard|activity|history|team)$/.test(location.pathname);
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
@@ -221,6 +291,7 @@ function ProjectShell() {
             <Link to="team" className="hidden sm:block" aria-label={t('team.members')}>
               <AvatarStack users={members} max={5} size="md" />
             </Link>
+            <ExportMenu filterTasks={filterTasks} />
             <button type="button" className="btn-primary" onClick={() => setNewTask({})} data-tour="new-task">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">{t('task.new')}</span>

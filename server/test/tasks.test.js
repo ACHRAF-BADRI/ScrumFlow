@@ -91,4 +91,24 @@ describe('tasks, checklist, epics and activity', () => {
     const history = (await api(owner).get(`/api/projects/${project._id}/tasks/${task._id}/activity`)).body.activity;
     assert.ok(history.length >= 4);
   });
+
+  test('blocked by: same project only, no self link, no loop, cleaned on delete', async () => {
+    const owner = await signUp('Owner');
+    const project = await createProject(owner);
+    const other = await createProject(owner, 'Other');
+    const a = await createTask(owner, project._id, { title: 'API' });
+    const b = await createTask(owner, project._id, { title: 'Front', blockedBy: [a._id] });
+    const c = await createTask(owner, project._id, { title: 'Release', blockedBy: [b._id] });
+    const foreign = await createTask(owner, other._id, { title: 'Elsewhere' });
+    assert.deepEqual(b.blockedBy, [a._id]);
+    const url = (t) => `/api/projects/${project._id}/tasks/${t._id}`;
+
+    assert.equal((await api(owner).patch(url(a)).send({ blockedBy: [a._id] })).body.code, 'errors.badBlocker');
+    assert.equal((await api(owner).patch(url(a)).send({ blockedBy: [c._id] })).body.code, 'errors.blockerLoop', 'A > B > C > A');
+    assert.equal((await api(owner).patch(url(a)).send({ blockedBy: [foreign._id] })).body.code, 'errors.badBlocker');
+
+    await api(owner).delete(url(b));
+    const release = (await api(owner).get(url(c))).body.task;
+    assert.deepEqual(release.blockedBy, []);
+  });
 });

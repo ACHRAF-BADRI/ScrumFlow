@@ -14,6 +14,15 @@ export const NEW_PASSWORD = `pw-${crypto.randomUUID()}`;
 process.env.MONGODB_URI = 'mongodb://placeholder'; // replaced below, config only checks it exists
 process.env.RESEND_API_KEY = '';
 process.env.CLIENT_URL = 'http://localhost:5173';
+// Fake Cloudinary account: uploads are signed locally, nothing is sent
+export const CLOUDINARY_SECRET = crypto.randomBytes(12).toString('hex');
+process.env.CLOUDINARY_URL = `cloudinary://${crypto.randomBytes(6).toString('hex')}:${CLOUDINARY_SECRET}@demo-cloud`;
+// Fake GitHub OAuth app (Google stays off): provider calls are stubbed in the tests
+process.env.GITHUB_CLIENT_ID = crypto.randomBytes(6).toString('hex');
+process.env.GITHUB_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
+process.env.GOOGLE_CLIENT_ID = '';
+process.env.MICROSOFT_CLIENT_ID = crypto.randomBytes(6).toString('hex');
+process.env.MICROSOFT_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 
 let mongo;
 let mongoose;

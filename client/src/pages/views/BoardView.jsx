@@ -18,12 +18,14 @@ import { CompleteSprintModal } from '../../components/sprints/SprintModals';
 import SprintGoal from '../../components/sprints/SprintGoal';
 import { ChecklistBadge } from '../../components/tasks/Checklist';
 import { EpicChip } from '../../components/tasks/Epics';
+import { BlockedIcon, useTaskIndex } from '../../components/tasks/Dependencies';
 import Tooltip from '../../components/ui/Tooltip';
 
 function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
   const { t } = useTranslation();
   const { project, updateTask } = useProject();
   const { openTask } = useOutletContext();
+  const byId = useTaskIndex();
   const overdue = isOverdue(task);
 
   return (
@@ -41,6 +43,7 @@ function CardView({ task, overlay, isDragging, cardRef, style, dragProps }) {
       <div className="mb-2 flex items-center gap-1.5">
         <TypeIcon type={task.type} className="h-3.5 w-3.5" />
         <span className="font-mono text-[11px] font-semibold text-muted">{taskKey(project, task)}</span>
+        <BlockedIcon task={task} byId={byId} />
         {task.points > 0 && (
           <Tooltip label={t('common.pointsLong')}>
             <span className="ml-auto rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] font-bold text-muted">{task.points}</span>
@@ -143,13 +146,29 @@ function Column({ status, taskIds, byId, allTasks, disabled, sprintId }) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({ id: status.key, disabled });
   const points = allTasks.reduce((sum, task) => sum + (task.points || 0), 0);
+  const limit = status.wipLimit || 0;
+  const over = limit > 0 && allTasks.length > limit;
 
   return (
-    <div className="flex w-[82vw] max-w-[300px] shrink-0 snap-start flex-col rounded-2xl bg-surface-2/70 sm:w-[272px] 2xl:w-auto 2xl:max-w-none 2xl:flex-1">
+    <div
+      className={clsx(
+        'flex w-[82vw] max-w-[300px] shrink-0 snap-start flex-col rounded-2xl bg-surface-2/70 sm:w-[272px] 2xl:w-auto 2xl:max-w-none 2xl:flex-1',
+        over && 'bg-[#e2445c]/10 ring-1 ring-[#e2445c]/50'
+      )}
+      data-testid={`column-${status.key}`}
+    >
       <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: status.color }} />
         <h3 className="truncate text-sm font-bold">{status.name}</h3>
-        <span className="rounded-full bg-surface px-2 text-xs font-bold text-muted">{allTasks.length}</span>
+        {limit > 0 ? (
+          <Tooltip label={over ? t('wip.over', { count: limit }) : t('wip.limit', { count: limit })}>
+            <span className={clsx('rounded-full px-2 text-xs font-bold', over ? 'bg-[#e2445c] text-white' : 'bg-surface text-muted')}>
+              {allTasks.length}/{limit}
+            </span>
+          </Tooltip>
+        ) : (
+          <span className="rounded-full bg-surface px-2 text-xs font-bold text-muted">{allTasks.length}</span>
+        )}
         <span className="ml-auto text-[11px] font-semibold text-muted">
           {points} {t('common.points')}
         </span>

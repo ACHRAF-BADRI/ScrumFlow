@@ -46,7 +46,10 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 
 - **Projects & team**: invite teammates by email, with roles (owner / admin / member) checked by the API. People without an account receive an invitation link, sign up and land directly in the project.
 - **Table view**: tasks grouped by sprint and backlog. Status, priority, assignee, points and due date are edited directly in the row. Each group shows a status bar and its total points. Drag tasks between groups to plan sprints.
-- **Board**: the active sprint by status, with drag & drop, quick add, sprint goal, progress and days left
+- **Board**: the active sprint by status, with drag & drop, quick add, sprint goal, progress and days left. **WIP limits** per column turn it red when too many tasks are in progress.
+- **Daily standup**: for each person, what they finished since the last working day, what they are working on and what blocks them, with a timed walkthrough (1 to 3 minutes each, shuffle, next speaker)
+- **Planning poker**: pick a task, everyone on the page votes in secret in real time, reveal the cards, see the average and save the estimate on the task
+- **Blocked by**: link tasks that must be finished first; a lock shows on cards and rows until the blockers are done (loops are refused)
 - **Custom workflow**: each project chooses its own statuses (name, color, order) and which ones count as done, in Team & settings
 - **Calendar**: tasks on a month grid by due date; drag a task to another day (or from "No due date") to reschedule it; the active sprint is highlighted
 - **Epics**: link stories to an epic, see its progress in the task panel and on the dashboard, filter the board by epic
@@ -56,14 +59,21 @@ A **project** holds your team, your backlog and your sprints. Every task has a t
 - **Activity log**: every change in the project (status, assignee, points, checklist, sprints, members…) as a timeline grouped by day, filterable by person, updated live
 - **My work**: all the tasks assigned to you in every project, grouped by due date (overdue, today, this week, later), with a project filter and inline status change
 - **History**: every completed sprint with its dates, goal, committed and delivered points, completion rate and delivered tasks, plus the team's average velocity and commitment reliability
-- **Task details**: a side panel with its own shareable link (`?task=…`), description, labels, a **checklist** of subtasks (progress shown on table rows and board cards), comments with **@mentions**, and the task's **history**
-- **Dashboard**: key numbers, sprint burndown, velocity, tasks by status and team workload
-- **Search & filters**: by keyword, task key, label or person ("My tasks")
+- **Task details**: a side panel with its own shareable link (`?task=…`), a **Markdown** description (toolbar, preview, pasted images), labels, a **checklist** of subtasks (progress shown on table rows and board cards), **attachments**, commits and pull requests from GitHub, comments with **@mentions** and Markdown, and the task's **history**
+- **Attachments**: drop files on a task (10 MB each, stored on Cloudinary, uploaded straight from the browser with a signature from the API); images show as thumbnails
+- **Templates and recurring tasks**: save any task as a template (with its checklist), start new tasks from it, or make it repeat every day, week or month in the active sprint or the backlog
+- **Dashboard**: key numbers, sprint **burndown** and **burnup** (any started sprint), **cumulative flow**, velocity, tasks by status and team workload
+- **Exports**: all tasks or the filtered ones as CSV (Excel and Google Sheets ready), and a printable **sprint report** to save as PDF
+- **Public link**: share a read-only board of the active sprint with people who have no account (no emails, comments or files shown), turn it off or replace it anytime
+- **Search & filters**: by keyword, task key, person, epic, priority, type or label, and **saved views** to reuse a set of filters
 - **Interface**: colored status badges, toasts, themed tooltips, illustrated empty states, confirmation dialogs, collapsible sidebar (`Ctrl/⌘ + B`) and a mobile menu
 - **Languages**: English / French (i18next), saved on the user profile, dates formatted for each language
 - **Themes**: light / dark / system, saved on the profile, no flash on load
 - **Emails** (Resend): invitations, forgot password (1 hour link), and notifications when a task is assigned to you or someone mentions you. Each user can turn notifications off in Account settings.
 - **Account**: profile, password, email notifications, favorite projects, and account deletion confirmed by typing your name
+- **Sign in with Google, Microsoft or GitHub** (same verified email = same account) and **two-step verification** with an authenticator app, with one-time recovery codes
+- **GitHub integration**: connect a repository with a webhook; commits and pull requests that mention a task key (`APO-12`) appear on the task, and merging the pull request can move it to done
+- **Installable app (PWA)**: install ScrumFlow on a phone or desktop; pages already opened stay readable offline
 - **Real time** (Socket.io): teammates' changes appear instantly without reloading, and the project header shows who is viewing it right now
 - **Notification bell**: assignments, @mentions and "added to a project" arrive live with a toast; open one to jump to the task, or mark all as read
 
@@ -75,8 +85,9 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 
 | Layer | Tech | Hosting |
 | --- | --- | --- |
-| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client | **Netlify** |
-| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend | **Render** |
+| Front end | React 18, Vite, Tailwind CSS, React Router, dnd-kit, Recharts, i18next, sonner, lucide, Socket.io client, marked + DOMPurify, qrcode, service worker | **Netlify** |
+| API | Node.js, Express 5, Mongoose, JWT, bcrypt, helmet, rate limiting, Socket.io, Resend, TOTP, OAuth 2 (Google, Microsoft, GitHub), GitHub webhooks | **Render** |
+| Files | Cloudinary (optional) | **Cloudinary** |
 | Database | MongoDB | **MongoDB Atlas** |
 
 ```
@@ -87,11 +98,12 @@ The logo is a stack of three task cards, each with its status dot: red (stuck), 
 │       ├── context/      Auth, Theme, Projects, Project (data + optimistic mutations)
 │       ├── hooks/        useContainerDnd (shared drag & drop logic)
 │       ├── i18n/         en.js, fr.js
-│       └── pages/        Auth, Projects, My work, Account, Project + views/ (Table, Board, Calendar, Dashboard, Activity, History, Retrospective, Team)
+│       └── pages/        Auth, Projects, My work, Account, Sprint report, Shared board, Project + views/ (Table, Board, Calendar, Standup, Poker, Dashboard, Activity, History, Retrospective, Team)
 ├── server/          Express API (Render)
 │   └── src/
 │       ├── models/       User, Project, Sprint, Task, Invitation, Notification, Activity
-│       ├── routes/       auth, projects (+members, stats), sprints, tasks
+│       ├── routes/       auth, oauth, projects (+members, stats, flow, share, github), sprints, tasks, templates, public, github (webhook)
+│       ├── services/     activity, notify, poker, recurring, cloudinary, oauth
 │       └── seed.js       sample data for local development
 ├── netlify.toml
 └── render.yaml
@@ -143,6 +155,19 @@ GitHub Actions runs both suites and the production build on every push to `main`
 
 > Free Render services sleep after inactivity. The first request can take ~50s, and the app shows a "waking up the server" toast while it waits.
 
+### Optional features
+
+Each one stays hidden in the app until its keys are set on Render (and in `server/.env` locally).
+
+| Feature | Environment variables | Where to get them |
+| --- | --- | --- |
+| Attachments | `CLOUDINARY_URL` | Cloudinary dashboard, "API environment variable" (`cloudinary://<key>:<secret>@<cloud>`) |
+| Sign in with Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud console, Credentials, OAuth client ID (web). Redirect URI: `https://<your-service>.onrender.com/api/auth/oauth/google/callback` |
+| Sign in with Microsoft | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` | Microsoft Entra admin center, App registrations (accounts in any organizational directory and personal accounts). Redirect URI (Web): `https://<your-service>.onrender.com/api/auth/oauth/microsoft/callback`. Add the optional ID token claims `email` and `xms_edov` so work accounts can sign in |
+| Sign in with GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub, Settings, Developer settings, OAuth Apps. Callback URL: `https://<your-service>.onrender.com/api/auth/oauth/github/callback` |
+
+Render sets `RENDER_EXTERNAL_URL` itself, which the API uses to build these URLs; elsewhere set `API_URL`. The GitHub integration needs no key: a project admin connects it in Team & settings and pastes the webhook URL and secret in the repository settings. Two-step verification, planning poker, exports, the public link and the installable app work without any setup.
+
 ### 3. Netlify (front end)
 1. Netlify → **Add new site → Import from Git** → select this repo (it reads `netlify.toml`: base `client`, publish `dist`).
 2. **Environment variables**: `VITE_API_URL=https://<your-service>.onrender.com`.
@@ -177,8 +202,17 @@ All routes are under `/api`, and everything except auth needs `Authorization: Be
 | POST | `/auth/forgot-password` · `/auth/reset-password` | Email a reset link / choose a new password |
 | GET · POST · PATCH | `/notifications` · `/notifications/read-all` · `/notifications/:id/read` | Bell: latest notifications / mark as read |
 | PATCH · POST · DELETE | `/auth/me` · `/auth/me/password` · `/auth/me` | Profile / change password / delete account |
+| POST | `/auth/2fa` · `/auth/me/2fa/setup` · `/auth/me/2fa/enable` · `/auth/me/2fa/disable` | Two-step verification (login code, set up, turn on or off) |
+| GET | `/auth/oauth/:provider` · `/auth/oauth/:provider/callback` | Sign in with Google, Microsoft or GitHub |
+| GET | `/config` | Optional features turned on (attachments, sign in providers) |
+| GET | `/projects/:id/stats?sprint=` · `/projects/:id/flow` | Burndown and burnup of a sprint · cumulative flow |
+| GET/POST/PATCH/DELETE | `/projects/:id/templates[/:templateId]` | Task templates and their repeat rule |
+| POST · DELETE | `/projects/:id/tasks/:taskId/attachments/sign` · `/attachments[/:attachmentId]` | Upload signature, save or delete a file |
+| GET/POST/DELETE | `/projects/:id/share` · GET `/public/:token` | Public read-only link (admin) · the shared board, no account |
+| GET/POST/PATCH/DELETE | `/projects/:id/github` · POST `/webhooks/github/:projectId` | GitHub integration settings (admin) · signed webhook from GitHub |
+| GET/POST/DELETE | `/me/filters[/:filterId]` | Saved views (per project) |
 
-Realtime events (Socket.io, same JWT in the handshake): `project:changed`, `presence`, `notification`, `projects:changed`. The socket only says *when* to refresh; data always comes from the REST API.
+Realtime events (Socket.io, same JWT in the handshake): `project:changed`, `presence`, `notification`, `projects:changed`, and `poker:state` for planning poker (`poker:start`, `poker:vote`, `poker:reveal`, `poker:restart`, `poker:end` from the client). The socket only says *when* to refresh; data always comes from the REST API.
 
 Errors return `{ message, code }`, where `code` is an i18n key (e.g. `errors.sprintAlreadyActive`) that the client translates.
 

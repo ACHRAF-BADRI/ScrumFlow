@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Check, GraduationCap, Languages, LogOut, Monitor, Moon, Sun, UserCog } from 'lucide-react';
+import { Check, GraduationCap, Languages, LogOut, Monitor, Moon, MonitorDown, Sun, UserCog } from 'lucide-react';
+import { useInstallPrompt } from '../../lib/pwa';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -81,6 +82,7 @@ export function UserMenu() {
   const { user, logout, updateProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const { replay } = useTour();
+  const { canInstall, install } = useInstallPrompt();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   if (!user) return null;
@@ -148,6 +150,19 @@ export function UserMenu() {
             <GraduationCap className="h-4 w-4" />
             {t('tour.replay')}
           </button>
+          {canInstall && (
+            <button
+              type="button"
+              className="menu-item"
+              onClick={() => {
+                close();
+                install();
+              }}
+            >
+              <MonitorDown className="h-4 w-4" />
+              {t('pwa.install')}
+            </button>
+          )}
           <button
             type="button"
             className="menu-item text-[#e2445c]"

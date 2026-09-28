@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ListTodo, Zap } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, CheckCircle2, FileText, ListTodo, Zap } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { useProject } from '../../context/ProjectContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,10 +27,13 @@ function StatCard({ icon: Icon, color, label, value, hint }) {
   );
 }
 
-function Panel({ title, children, className = '' }) {
+function Panel({ title, children, className = '', action }) {
   return (
     <section className={`card p-4 sm:p-5 ${className}`}>
-      <h3 className="mb-4 text-sm font-bold">{title}</h3>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h3 className="flex-1 text-sm font-bold">{title}</h3>
+        {action}
+      </div>
       {children}
     </section>
   );
@@ -49,18 +53,23 @@ export default function DashboardView() {
   const { project, tasks, memberById } = useProject();
   const { list: statuses } = useStatuses();
   const [stats, setStats] = useState(null);
+  const [flow, setFlow] = useState(null);
+  const [sprintId, setSprintId] = useState('');
 
   // Refetch when tasks change so the charts follow edits made in other views
   useEffect(() => {
     let cancelled = false;
-    api
-      .get(`/projects/${project._id}/stats`)
-      .then(({ data }) => !cancelled && setStats(data))
+    Promise.all([api.get(`/projects/${project._id}/stats`, { params: { sprint: sprintId || undefined } }), api.get(`/projects/${project._id}/flow`, { params: { days: 30 } })])
+      .then(([s, f]) => {
+        if (cancelled) return;
+        setStats(s.data);
+        setFlow(f.data.days);
+      })
       .catch(toastError);
     return () => {
       cancelled = true;
     };
-  }, [project._id, tasks]);
+  }, [project._id, tasks, sprintId]);
 
   if (!stats) {
     return (
@@ -84,6 +93,29 @@ export default function DashboardView() {
     .map(([id, w]) => ({ id, user: id === 'unassigned' ? null : memberById[id], ...w }))
     .sort((a, b) => b.total - a.total);
   const burndown = stats.burndown?.points.map((p) => ({ ...p, label: formatDate(p.date) }));
+  const flowData = flow?.map((d) => ({ ...d, label: formatDate(d.date) }));
+  const hasFlow = flowData?.some((d) => statuses.some((s) => d[s.key] > 0));
+  const sprintPicker =
+    stats.sprints?.length > 1 ? (
+      <select
+        className="input h-8 w-auto max-w-[12rem] py-0 text-xs"
+        value={stats.burndown?.sprintId ?? ''}
+        onChange={(e) => setSprintId(e.target.value)}
+        aria-label={t('dashboard.pickSprint')}
+      >
+        {stats.sprints.map((s) => (
+          <option key={s._id} value={s._id}>
+            {s.name}
+            {s.status === 'active' ? ` (${t('dashboard.activeShort')})` : ''}
+          </option>
+        ))}
+      </select>
+    ) : null;
+  const reportLink = stats.burndown && (
+    <Link to={`/projects/${project._id}/report?sprint=${stats.burndown.sprintId}`} className="btn-ghost h-8 px-2 text-xs">
+      <FileText className="h-3.5 w-3.5" /> {t('report.open')}
+    </Link>
+  );
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -95,7 +127,15 @@ export default function DashboardView() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title={`${t('dashboard.burndown')}${stats.burndown ? ` · ${stats.burndown.sprint}` : ''}`}>
+        <Panel
+          title={`${t('dashboard.burndown')}${stats.burndown && !sprintPicker ? ` · ${stats.burndown.sprint}` : ''}`}
+          action={
+            <>
+              {sprintPicker}
+              {reportLink}
+            </>
+          }
+        >
           {burndown ? (
             <div className="h-64">
               <ResponsiveContainer>
@@ -112,6 +152,47 @@ export default function DashboardView() {
             </div>
           ) : (
             <ChartEmpty text={t('dashboard.burndownEmpty')} />
+          )}
+        </Panel>
+
+        <Panel title={`${t('dashboard.burnup')}${stats.burndown ? ` · ${stats.burndown.sprint}` : ''}`}>
+          {burndown ? (
+            <div className="h-64">
+              <ResponsiveContainer>
+                <LineChart data={burndown} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke={grid} strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} minTickGap={16} />
+                  <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: grid }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
+                  <Line type="stepAfter" dataKey="scope" name={t('dashboard.scope')} stroke="#fdab3d" strokeWidth={2} dot={false} />
+                  <Line type="linear" dataKey="done" name={t('dashboard.doneWork')} stroke="#00c875" strokeWidth={2.5} dot={{ r: 3 }} connectNulls={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <ChartEmpty text={t('dashboard.burndownEmpty')} />
+          )}
+        </Panel>
+
+        <Panel title={t('dashboard.flow')}>
+          {hasFlow ? (
+            <div className="h-64" data-testid="flow-chart">
+              <ResponsiveContainer>
+                <AreaChart data={flowData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid stroke={grid} strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="label" tick={axis} tickLine={false} axisLine={false} minTickGap={24} />
+                  <YAxis tick={axis} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: grid }} />
+                  {/* Done at the bottom, like a classic cumulative flow diagram */}
+                  {[...statuses].reverse().map((s) => (
+                    <Area key={s.key} type="monotone" dataKey={s.key} name={s.name} stackId="flow" stroke={s.color} fill={s.color} fillOpacity={0.55} />
+                  ))}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <ChartEmpty text={t('dashboard.noData')} />
           )}
         </Panel>
 

@@ -1,10 +1,10 @@
-import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { Server } from 'socket.io';
-import { config } from './config.js';
+import { verifySession } from './middleware/auth.js';
 import Project from './models/Project.js';
 import User from './models/User.js';
 import { isAllowedOrigin } from './utils/cors.js';
+import * as poker from './services/poker.js';
 
 /*
  * Realtime layer (Socket.io).
@@ -31,7 +31,10 @@ function leaveProject(socket) {
   socket.data.projectId = null;
   const map = viewers.get(projectId);
   map?.delete(socket.id);
-  if (map && map.size === 0) viewers.delete(projectId);
+  if (map && map.size === 0) {
+    viewers.delete(projectId);
+    poker.endRound(projectId); // nobody left to vote
+  }
   io.to(`project:${projectId}`).emit('presence', { projectId, users: presence(projectId) });
 }
 
@@ -43,7 +46,7 @@ export function initRealtime(server) {
   // Same JWT as the REST API, sent in the handshake
   io.use(async (socket, next) => {
     try {
-      const { sub } = jwt.verify(socket.handshake.auth?.token ?? '', config.jwtSecret);
+      const { sub } = verifySession(socket.handshake.auth?.token ?? '');
       const user = await User.findById(sub).select('name avatarColor');
       if (!user) return next(new Error('unauthorized'));
       socket.data.user = { _id: String(user._id), name: user.name, avatarColor: user.avatarColor };
@@ -69,6 +72,27 @@ export function initRealtime(server) {
       io.to(`project:${projectId}`).emit('presence', { projectId, users: presence(projectId) });
       return ack?.({ ok: true });
     });
+
+    // ---- Planning poker (only inside the project the socket has joined) ----
+    const inRoom = (handler) => (payload, ack) => {
+      const projectId = socket.data.projectId;
+      if (!projectId) return ack?.({ ok: false });
+      handler(projectId, payload ?? {});
+      io.to(`project:${projectId}`).emit('poker:state', { projectId, state: poker.publicState(projectId) });
+      return ack?.({ ok: true });
+    };
+    socket.on('poker:get', (_payload, ack) => {
+      const projectId = socket.data.projectId;
+      ack?.({ ok: Boolean(projectId), state: projectId ? poker.publicState(projectId) : null });
+    });
+    socket.on(
+      'poker:start',
+      inRoom((projectId, { taskId }) => mongoose.isValidObjectId(taskId) && poker.startRound(projectId, taskId, socket.data.user))
+    );
+    socket.on('poker:vote', inRoom((projectId, { value }) => poker.vote(projectId, socket.data.user, String(value))));
+    socket.on('poker:reveal', inRoom((projectId) => poker.reveal(projectId)));
+    socket.on('poker:restart', inRoom((projectId) => poker.restart(projectId)));
+    socket.on('poker:end', inRoom((projectId) => poker.endRound(projectId)));
 
     socket.on('project:leave', () => leaveProject(socket));
     socket.on('disconnect', () => leaveProject(socket));

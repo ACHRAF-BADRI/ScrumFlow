@@ -10,6 +10,7 @@ import { Logo } from '../components/layout/AppLayout';
 import { LanguageSwitcher, ThemeToggle } from '../components/layout/Preferences';
 import { Spinner } from '../components/ui/Feedback';
 import { InviteBanner, useInvitation } from './InvitePage';
+import { OAuthButtons, TwoFactorForm } from '../components/auth/SignIn';
 
 function Hero() {
   const { t } = useTranslation();
@@ -65,6 +66,7 @@ export default function AuthPage({ mode }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [ticket, setTicket] = useState(null); // two-step verification in progress
   const isLogin = mode === 'login';
   // Arriving from an invitation link: show who invited you and prefill the email
   const [params] = useSearchParams();
@@ -72,25 +74,42 @@ export default function AuthPage({ mode }) {
   const { invitation } = useInvitation(inviteToken);
   const inviteQuery = inviteToken ? `?invite=${inviteToken}` : '';
 
+  // Back from Google / GitHub with an error
+  const oauthError = params.get('oauthError');
+  useEffect(() => {
+    if (!oauthError) return undefined;
+    // Next tick: the toaster starts listening after this first render
+    const timer = setTimeout(() => toast.error(t(`auth.oauthError.${oauthError}`, { defaultValue: t('auth.oauthError.failed') }), { id: 'oauth-error' }));
+    return () => clearTimeout(timer);
+  }, [oauthError, t]);
+
   useEffect(() => {
     if (invitation) setForm((f) => ({ ...f, email: f.email || invitation.email }));
   }, [invitation]);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
+  const finish = async (user) => {
+    toast.success(t('auth.welcome', { name: user.name.split(' ')[0] }));
+    let target = location.state?.from ?? '/';
+    if (invitation && user.email === invitation.email) {
+      // Sign-up joins pending invitations automatically; an existing account accepts it here
+      if (isLogin) await api.post(`/invitations/${inviteToken}/accept`).catch(() => {});
+      target = `/projects/${invitation.project._id}`;
+    }
+    navigate(target, { replace: true });
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const user = isLogin ? await login(form.email, form.password) : await register(form.name, form.email, form.password);
-      toast.success(t('auth.welcome', { name: user.name.split(' ')[0] }));
-      let target = location.state?.from ?? '/';
-      if (invitation && user.email === invitation.email) {
-        // Sign-up joins pending invitations automatically; an existing account accepts it here
-        if (isLogin) await api.post(`/invitations/${inviteToken}/accept`).catch(() => {});
-        target = `/projects/${invitation.project._id}`;
+      const result = isLogin ? await login(form.email, form.password) : await register(form.name, form.email, form.password);
+      if (result.twoFactor) {
+        setTicket(result.ticket);
+        return;
       }
-      navigate(target, { replace: true });
+      await finish(result);
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -119,7 +138,12 @@ export default function AuthPage({ mode }) {
             </div>
           )}
 
-          <form onSubmit={submit} className="mt-8 space-y-4">
+          {ticket ? (
+            <TwoFactorForm ticket={ticket} onDone={finish} onCancel={() => setTicket(null)} />
+          ) : (
+          <>
+          <OAuthButtons />
+          <form onSubmit={submit} className="mt-6 space-y-4">
             {!isLogin && (
               <div>
                 <label className="label" htmlFor="name">
@@ -171,6 +195,8 @@ export default function AuthPage({ mode }) {
               {isLogin ? t('auth.login') : t('auth.register')}
             </button>
           </form>
+          </>
+          )}
 
           <p className="mt-6 text-center text-sm text-muted">
             {isLogin ? t('auth.noAccount') : t('auth.hasAccount')}{' '}

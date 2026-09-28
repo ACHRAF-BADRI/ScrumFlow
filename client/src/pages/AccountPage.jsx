@@ -10,6 +10,7 @@ import { api, errorMessage } from '../lib/api';
 import { PROJECT_COLORS } from '../lib/constants';
 import { Avatar } from '../components/ui/Avatar';
 import { Modal } from '../components/ui/Modal';
+import SecuritySection from '../components/auth/SecuritySection';
 
 function Section({ icon: Icon, title, text, children, danger }) {
   return (
@@ -370,6 +371,7 @@ export default function AccountPage() {
       <ProfileSection />
       <NotificationsSection />
       <PasswordSection />
+      <SecuritySection Section={Section} />
       <DeleteSection />
     </div>
   );

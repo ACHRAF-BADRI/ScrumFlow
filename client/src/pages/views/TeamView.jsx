@@ -12,6 +12,9 @@ import { RoleBadge } from '../../components/ui/Badge';
 import { useConfirm } from '../../components/ui/Confirm';
 import ProjectFields from '../../components/ProjectFields';
 import WorkflowEditor from '../../components/WorkflowEditor';
+import { TemplatesCard } from '../../components/tasks/Templates';
+import ShareCard from '../../components/ShareCard';
+import GitHubCard from '../../components/GitHubCard';
 import Tooltip from '../../components/ui/Tooltip';
 
 function InviteLink({ url, onClose }) {
@@ -291,10 +294,13 @@ export default function TeamView() {
         {canManage && <InviteForm onInvited={() => setInvitesKey((k) => k + 1)} />}
         {canManage && <PendingInvitations reloadKey={invitesKey} />}
         {canManage && <WorkflowEditor />}
+        <TemplatesCard />
       </div>
 
       <div className="space-y-4">
         {canManage && <SettingsForm />}
+        {canManage && <ShareCard />}
+        {canManage && <GitHubCard />}
         {role === 'owner' && (
           <section className="card border-[#e2445c]/40 p-4 sm:p-5">
             <h3 className="text-sm font-bold text-[#e2445c]">{t('team.dangerZone')}</h3>

@@ -74,4 +74,13 @@ describe('projects, team and workflow', () => {
     assert.deepEqual([stats.totals.tasks, stats.totals.done, stats.totals.donePoints], [2, 1, 3]);
     assert.equal(stats.byStatus.done, 1);
   });
+
+  test('workflow: WIP limits are kept and clamped', async () => {
+    const owner = await signUp('Owner');
+    const project = await createProject(owner);
+    const res = await api(owner)
+      .patch(`/api/projects/${project._id}`)
+      .send({ statuses: [{ key: 'todo', category: 'todo' }, { key: 'in_progress', category: 'in_progress', wipLimit: 3 }, { key: 'done', category: 'done', wipLimit: 500 }] });
+    assert.deepEqual(res.body.project.statuses.map((s) => s.wipLimit), [0, 3, 99]);
+  });
 });

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, toastError } from '../lib/api';
+import { uploadAttachment } from '../lib/upload';
 import { MANAGER_ROLES } from '../lib/constants';
 import { useProjects } from './ProjectsContext';
 import { useRealtime, useRealtimeEvent } from './RealtimeContext';
@@ -261,6 +262,43 @@ export function ProjectProvider({ projectId, children }) {
           if (previous) replaceTask(previous);
           toastError(err);
         }
+      },
+
+      // ---- Attachments ----
+      async uploadAttachment(taskId, file, onProgress) {
+        const data = await guarded(() => uploadAttachment(`${base}/tasks/${taskId}`, file, onProgress));
+        replaceTask(data.task);
+        return data.attachment;
+      },
+
+      async deleteAttachment(taskId, attachmentId) {
+        const previous = tasksRef.current.find((t) => t._id === taskId);
+        if (previous) replaceTask({ ...previous, attachments: previous.attachments.filter((a) => a._id !== attachmentId) });
+        try {
+          const { data } = await guarded(() => api.delete(`${base}/tasks/${taskId}/attachments/${attachmentId}`));
+          replaceTask(data.task);
+        } catch (err) {
+          if (previous) replaceTask(previous);
+          toastError(err);
+        }
+      },
+
+      // ---- Templates ----
+      async createTemplate(payload) {
+        const { data } = await guarded(() => api.post(`${base}/templates`, payload));
+        setProject((p) => ({ ...p, templates: data.templates }));
+        return data.template;
+      },
+
+      async updateTemplate(templateId, payload) {
+        const { data } = await guarded(() => api.patch(`${base}/templates/${templateId}`, payload));
+        setProject((p) => ({ ...p, templates: data.templates }));
+        return data.template;
+      },
+
+      async deleteTemplate(templateId) {
+        const { data } = await guarded(() => api.delete(`${base}/templates/${templateId}`));
+        setProject((p) => ({ ...p, templates: data.templates }));
       },
 
       loadActivity: (params = {}) => api.get(`${base}/activity`, { params }).then(({ data }) => data),

@@ -5,6 +5,8 @@ import { useProject } from '../../context/ProjectContext';
 import { toastError } from '../../lib/api';
 import { taskKey } from '../../lib/format';
 import { Modal } from '../ui/Modal';
+import { MarkdownEditor } from '../ui/Markdown';
+import { useTemplates } from './Templates';
 import { LabelsInput } from './TaskDrawer';
 import { EpicPicker } from './Epics';
 import { AssigneePicker, PointsPicker, PriorityPicker, SprintPicker, StatusPicker, TypePicker } from './Pickers';
@@ -21,19 +23,46 @@ const blank = (defaults) => ({
   epic: null,
   dueDate: '',
   labels: [],
+  checklist: [],
   ...defaults,
 });
 
 /** `defaults` pre-fills fields, e.g. { sprint } when adding from a sprint group. */
 export default function NewTaskModal({ open, onClose, defaults }) {
   const { t } = useTranslation();
-  const { project, createTask } = useProject();
+  const { project, createTask, members } = useProject();
+  const templates = useTemplates();
   const [form, setForm] = useState(() => blank(defaults));
+  const [templateId, setTemplateId] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm(blank(defaults));
+    if (open) {
+      setForm(blank(defaults));
+      setTemplateId('');
+    }
   }, [open, defaults]);
+
+  // Fill the form from a template, keeping where the task was opened from (sprint, status)
+  const applyTemplate = (id) => {
+    setTemplateId(id);
+    const tpl = templates.find((x) => x._id === id);
+    if (!tpl) return setForm(blank(defaults));
+    const assignee = tpl.assignee && members.some((m) => m._id === tpl.assignee) ? tpl.assignee : null;
+    setForm(
+      blank({
+        title: tpl.title,
+        description: tpl.description,
+        type: tpl.type,
+        priority: tpl.priority,
+        points: tpl.points,
+        labels: tpl.labels,
+        checklist: tpl.checklist,
+        assignee,
+        ...defaults,
+      })
+    );
+  };
 
   const set = (field) => (value) => setForm((f) => ({ ...f, [field]: value }));
 
@@ -70,6 +99,21 @@ export default function NewTaskModal({ open, onClose, defaults }) {
       }
     >
       <form id="new-task" onSubmit={submit} className="space-y-4">
+        {templates.length > 0 && (
+          <div>
+            <label className="label" htmlFor="task-template">
+              {t('templates.useOne')}
+            </label>
+            <select id="task-template" className="input" value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
+              <option value="">{t('templates.noTemplate')}</option>
+              {templates.map((tpl) => (
+                <option key={tpl._id} value={tpl._id}>
+                  {tpl.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label className="label" htmlFor="task-title">
             {t('task.title')}
@@ -119,15 +163,24 @@ export default function NewTaskModal({ open, onClose, defaults }) {
           <label className="label" htmlFor="task-description">
             {t('task.description')}
           </label>
-          <textarea
-            id="task-description"
-            className="input min-h-[100px] resize-y"
-            placeholder={t('task.descriptionPlaceholder')}
-            value={form.description}
-            maxLength={5000}
-            onChange={(e) => set('description')(e.target.value)}
-          />
+          <MarkdownEditor id="task-description" minHeight={100} value={form.description} onChange={set('description')} members={members} placeholder={t('task.descriptionPlaceholder')} />
         </div>
+        {form.checklist.length > 0 && (
+          <div>
+            <span className="label">{t('checklist.title')}</span>
+            <ul className="space-y-1 rounded-lg border border-line p-2 text-sm">
+              {form.checklist.map((item, i) => (
+                <li key={`${item}-${i}`} className="flex items-center gap-2">
+                  <span className="h-3.5 w-3.5 rounded border border-line" />
+                  <span className="min-w-0 flex-1 truncate">{item}</span>
+                  <button type="button" className="text-xs text-muted hover:text-[#e2445c]" onClick={() => set('checklist')(form.checklist.filter((_, j) => j !== i))}>
+                    {t('common.delete')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </form>
     </Modal>
   );

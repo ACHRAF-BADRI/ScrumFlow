@@ -20,6 +20,20 @@ const checklistItemSchema = new mongoose.Schema(
   { _id: true }
 );
 
+// A file stored on Cloudinary (uploaded by the browser with a signature from the API)
+const attachmentSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, maxlength: 500 },
+    publicId: { type: String, required: true, maxlength: 300 },
+    resourceType: { type: String, enum: ['image', 'video', 'raw'], default: 'raw' },
+    name: { type: String, required: true, trim: true, maxlength: 200 },
+    size: { type: Number, min: 0, default: 0 },
+    mime: { type: String, maxlength: 120, default: '' },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  },
+  { timestamps: { createdAt: true, updatedAt: false } }
+);
+
 const taskSchema = new mongoose.Schema(
   {
     project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true, index: true },
@@ -42,8 +56,23 @@ const taskSchema = new mongoose.Schema(
     order: { type: Number, default: 0 },
     completedAt: { type: Date, default: null },
     comments: [commentSchema],
+    // Tasks of the same project that must be finished before this one
+    blockedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
     // Subtasks: small steps inside the task, with their own done state
     checklist: [checklistItemSchema],
+    attachments: [attachmentSchema],
+    // Commits and pull requests that mention the task key (GitHub webhook)
+    links: [
+      {
+        kind: { type: String, enum: ['commit', 'pr'], required: true },
+        url: { type: String, required: true, maxlength: 500 },
+        title: { type: String, maxlength: 200, default: '' },
+        ref: { type: String, maxlength: 40, default: '' },
+        state: { type: String, maxlength: 20, default: '' },
+        author: { type: String, maxlength: 100, default: '' },
+        at: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 );
