@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+const OAUTH_PROVIDERS = ['google', 'microsoft', 'github', 'gitlab', 'bitbucket'];
 const AVATAR_COLORS = ['#6161ff', '#00c875', '#fdab3d', '#e2445c', '#a25ddc', '#579bfc', '#ff642e', '#037f4c'];
 
 const userSchema = new mongoose.Schema(
@@ -26,6 +27,7 @@ const userSchema = new mongoose.Schema(
       github: { type: String, default: undefined },
       microsoft: { type: String, default: undefined },
       gitlab: { type: String, default: undefined },
+      bitbucket: { type: String, default: undefined },
     },
     // Two-step verification with an authenticator app (TOTP)
     twoFactor: {
@@ -65,7 +67,8 @@ userSchema.set('toJSON', {
     delete ret.resetPasswordExpires;
     delete ret.savedFilters;
     if (ret.twoFactor) ret.twoFactor = { enabled: Boolean(ret.twoFactor.enabled) };
-    if (ret.oauth) ret.oauth = { google: Boolean(ret.oauth.google), github: Boolean(ret.oauth.github), microsoft: Boolean(ret.oauth.microsoft), gitlab: Boolean(ret.oauth.gitlab) };
+    // Only whether each provider is linked, never the provider ids
+    if (ret.oauth) ret.oauth = Object.fromEntries(OAUTH_PROVIDERS.map((name) => [name, Boolean(ret.oauth[name])]));
     delete ret.__v;
     return ret;
   },

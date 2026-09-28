@@ -45,3 +45,7 @@ services:
         sync: false
       - key: GITLAB_CLIENT_SECRET
         sync: false
+      - key: BITBUCKET_CLIENT_ID
+        sync: false
+      - key: BITBUCKET_CLIENT_SECRET
+        sync: false

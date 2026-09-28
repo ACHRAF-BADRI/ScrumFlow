@@ -100,6 +100,30 @@ export const providers = {
       return { id: String(user.id), email: user.confirmed_at ? user.email : null, name: user.name || user.username };
     },
   },
+  bitbucket: {
+    enabled: () => Boolean(config.oauth.bitbucket),
+    // Bitbucket uses the callback URL and the permissions set on the OAuth consumer
+    authorizeUrl: (state) =>
+      `https://bitbucket.org/site/oauth2/authorize?${new URLSearchParams({ client_id: config.oauth.bitbucket.clientId, response_type: 'code', state })}`,
+    async profile(code) {
+      const basic = Buffer.from(`${config.oauth.bitbucket.clientId}:${config.oauth.bitbucket.clientSecret}`).toString('base64');
+      const { access_token: token } = await json(
+        await fetch('https://bitbucket.org/site/oauth2/access_token', {
+          method: 'POST',
+          headers: { authorization: `Basic ${basic}`, 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'authorization_code', code }),
+        })
+      );
+      const headers = { authorization: `Bearer ${token}`, accept: 'application/json' };
+      const [user, emails] = await Promise.all([
+        json(await fetch('https://api.bitbucket.org/2.0/user', { headers })),
+        json(await fetch('https://api.bitbucket.org/2.0/user/emails', { headers })),
+      ]);
+      const list = emails.values ?? [];
+      const primary = list.find((e) => e.is_primary && e.is_confirmed) ?? list.find((e) => e.is_confirmed);
+      return { id: String(user.account_id || user.uuid), email: primary?.email ?? null, name: user.display_name || user.nickname || user.username };
+    },
+  },
   microsoft: {
     enabled: () => Boolean(config.oauth.microsoft),
     // "common": personal Microsoft accounts and work or school accounts

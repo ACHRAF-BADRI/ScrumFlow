@@ -55,7 +55,7 @@ describe('two-step verification, sign in with GitHub, GitLab and Microsoft, Git 
 
   test('sign in with GitHub: state is checked, account created or reused by email', async () => {
     const config = (await request.get('/api/config')).body;
-    assert.deepEqual(config.oauth, { google: false, github: true, gitlab: true, microsoft: true });
+    assert.deepEqual(config.oauth, { google: false, github: true, gitlab: true, bitbucket: true, microsoft: true });
     assert.match((await request.get('/api/auth/oauth/google')).headers.location, /\/login\?oauthError=disabled$/);
 
     const start = await request.get('/api/auth/oauth/github?lang=fr');
@@ -121,6 +121,31 @@ describe('two-step verification, sign in with GitHub, GitLab and Microsoft, Git 
     stubFetch({ 'https://gitlab.com/oauth/token': { access_token: crypto.randomBytes(16).toString('hex') }, 'https://gitlab.com/api/v4/user': { id: 78, username: 'x', email: `new.${Date.now()}@test.io`, confirmed_at: null } });
     const refused = await request.get(`/api/auth/oauth/gitlab/callback?code=c&state=${await stateOf()}`);
     assert.match(refused.headers.location, /oauthError=noEmail/);
+  });
+
+  test('sign in with Bitbucket: client credentials in Basic auth, confirmed primary email', async () => {
+    const start = new URL((await request.get('/api/auth/oauth/bitbucket')).headers.location);
+    assert.equal(`${start.origin}${start.pathname}`, 'https://bitbucket.org/site/oauth2/authorize');
+    const state = start.searchParams.get('state');
+
+    let tokenRequest = null;
+    const email = `bb.${Date.now()}@test.io`;
+    const replies = {
+      'https://bitbucket.org/site/oauth2/access_token': { access_token: crypto.randomBytes(16).toString('hex') },
+      'https://api.bitbucket.org/2.0/user/emails': { values: [{ email: `old.${Date.now()}@test.io`, is_primary: false, is_confirmed: false }, { email, is_primary: true, is_confirmed: true }] },
+      'https://api.bitbucket.org/2.0/user': { account_id: 'acc-1', display_name: 'Bit Bucket' },
+    };
+    globalThis.fetch = async (url, init = {}) => {
+      if (String(url).includes('access_token')) tokenRequest = init;
+      const hit = Object.entries(replies).find(([prefix]) => String(url).startsWith(prefix));
+      if (!hit) throw new Error(`unexpected fetch ${url}`);
+      return new Response(JSON.stringify(hit[1]), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const done = await request.get(`/api/auth/oauth/bitbucket/callback?code=c&state=${state}`);
+    assert.match(tokenRequest.headers.authorization, /^Basic /, 'client id and secret sent as Basic auth');
+    const token = new URLSearchParams(new URL(done.headers.location).hash.slice(1)).get('token');
+    const me = (await request.get('/api/auth/me').set('Authorization', `Bearer ${token}`)).body.user;
+    assert.deepEqual([me.name, me.email, me.oauth.bitbucket, me.oauth.google], ['Bit Bucket', email, true, false]);
   });
 
   test('GitLab webhook: token checked, commits and merge requests linked, merged MR finishes the task', async () => {
