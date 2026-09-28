@@ -55,7 +55,9 @@ router.get('/:provider/callback', async (req, res) => {
       user.set(`oauth.${name}`, profile.id);
       await user.save();
     }
+    if (user.suspended) return res.redirect(clientUrl('/login?oauthError=suspended'));
     if (user.twoFactor?.enabled) return res.redirect(clientUrl(`/oauth#ticket=${signTwoFactorTicket(user)}`));
+    await User.updateOne({ _id: user._id }, { lastLoginAt: new Date() });
     return res.redirect(clientUrl(`/oauth#token=${signToken(user)}${created ? '&new=1' : ''}`));
   } catch (err) {
     console.warn(`[oauth:${name}]`, err.message);

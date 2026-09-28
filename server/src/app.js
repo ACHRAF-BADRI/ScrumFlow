@@ -8,7 +8,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
 import { config } from './config.js';
-import { requireAuth } from './middleware/auth.js';
+import { requireAdmin, requireAuth } from './middleware/auth.js';
+import adminRoutes from './routes/admin.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
@@ -63,6 +64,7 @@ app.use('/api/invitations', invitationRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', requireAuth, notificationRoutes);
 app.use('/api/me', requireAuth, meRoutes);
+app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
 
 // After any successful change inside a project, tell the people viewing it to refresh
 app.use('/api/projects/:projectId', (req, res, next) => {

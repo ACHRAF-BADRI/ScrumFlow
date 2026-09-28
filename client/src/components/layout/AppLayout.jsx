@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { WifiOff } from 'lucide-react';
+import { ShieldCheck, WifiOff } from 'lucide-react';
 import { useOnline } from '../../lib/pwa';
+import BackToTop from '../ui/BackToTop';
+import { useAuth } from '../../context/AuthContext';
 import { FolderKanban, LayoutGrid, ListTodo, Menu, Search, PanelLeftClose, PanelLeftOpen, Plus, Star, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useProjects } from '../../context/ProjectsContext';
@@ -31,6 +33,7 @@ export function Logo({ className, compact, wordmarkClassName }) {
 
 function Sidebar({ onNavigate, onNewProject, collapsed = false }) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { projects: allProjects, loading } = useProjects();
   const { isFavorite, sortFavoritesFirst } = useFavorites();
   const projects = sortFavoritesFirst(allProjects);
@@ -56,6 +59,14 @@ function Sidebar({ onNavigate, onNewProject, collapsed = false }) {
           {!collapsed && t('nav.myWork')}
         </NavLink>
       </Tooltip>
+      {user?.isAdmin && (
+        <Tooltip side="right" label={t('admin.title')} disabled={!collapsed}>
+          <NavLink to="/admin" className={linkClass} onClick={onNavigate} data-testid="nav-admin">
+            <ShieldCheck className="h-[18px] w-[18px] shrink-0" />
+            {!collapsed && t('admin.title')}
+          </NavLink>
+        </Tooltip>
+      )}
 
       {collapsed ? (
         <div className="my-3 flex flex-col items-center gap-2">
@@ -241,7 +252,8 @@ export default function AppLayout() {
           <button type="button" className="btn-icon -ml-2 lg:hidden" onClick={() => setDrawerOpen(true)} aria-label={t('nav.menu')}>
             <Menu className="h-5 w-5" />
           </button>
-          <Logo className="lg:hidden" wordmarkClassName="hidden sm:inline" />
+          {/* Narrow phones: the logo goes first (the menu has it), then the theme button (also in the avatar menu) */}
+          <Logo className="lg:hidden max-[419px]:hidden" wordmarkClassName="hidden sm:inline" />
           <div className="ml-auto flex items-center gap-1">
             <button type="button" onClick={() => setPaletteOpen(true)} className="btn-ghost h-9 gap-2 px-2.5 sm:border sm:border-line sm:bg-surface sm:pr-2" aria-label={t('palette.title')}>
               <Search className="h-[18px] w-[18px]" />
@@ -250,7 +262,7 @@ export default function AppLayout() {
             </button>
             <NotificationBell />
             <LanguageSwitcher />
-            <ThemeToggle />
+            <ThemeToggle className="max-[374px]:hidden" />
             <div className="ml-1.5">
               <UserMenu />
             </div>
@@ -262,6 +274,7 @@ export default function AppLayout() {
         </main>
       </div>
 
+      <BackToTop />
       <NewProjectModal open={newProjectOpen} onClose={() => setNewProjectOpen(false)} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onNewProject={openNewProject} />
     </div>

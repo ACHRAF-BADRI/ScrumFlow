@@ -10,6 +10,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { LabelChip, PriorityBadge, TypeIcon } from '../components/ui/Badge';
 import { EmptyState, PageLoader, ProgressBar } from '../components/ui/Feedback';
 import LogoMark from '../components/ui/LogoMark';
+import BackToTop from '../components/ui/BackToTop';
 import { LanguageSwitcher, ThemeToggle } from '../components/layout/Preferences';
 
 /** Read-only board opened from a public link: no account, no editing. */
@@ -150,6 +151,7 @@ export default function SharedBoardPage() {
           {t('share.cta')}
         </Link>
       </p>
+      <BackToTop />
     </div>
   );
 }

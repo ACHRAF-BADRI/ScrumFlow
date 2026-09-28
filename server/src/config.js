@@ -56,6 +56,12 @@ export const config = {
   emailFrom: process.env.EMAIL_FROM || 'ScrumFlow <onboarding@resend.dev>',
   // Optional: task attachments are hidden when Cloudinary is not configured
   cloudinary: cloudinary.config,
+  // Main platform admin, created at startup from these values
+  admin: {
+    email: String(process.env.ADMIN_EMAIL ?? '').toLowerCase().trim() || null,
+    password: process.env.ADMIN_PASSWORD || null,
+    name: String(process.env.ADMIN_NAME ?? '').trim() || 'Admin',
+  },
   // Optional: AI suggestions appear when a provider key is set
   ai: aiConfig(),
   // Optional: "Sign in with…" buttons appear when their keys are set

@@ -362,6 +362,7 @@ function DeleteSection() {
 
 export default function AccountPage() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   return (
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
       <div>
@@ -370,9 +371,9 @@ export default function AccountPage() {
       </div>
       <ProfileSection />
       <NotificationsSection />
-      <PasswordSection />
+      {!user.isRootAdmin && <PasswordSection />}
       <SecuritySection Section={Section} />
-      <DeleteSection />
+      {user.isRootAdmin ? <p className="text-center text-xs text-muted">{t('admin.rootAccountNote')}</p> : <DeleteSection />}
     </div>
   );
 }

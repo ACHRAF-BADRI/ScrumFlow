@@ -47,8 +47,8 @@ export function initRealtime(server) {
   io.use(async (socket, next) => {
     try {
       const { sub } = verifySession(socket.handshake.auth?.token ?? '');
-      const user = await User.findById(sub).select('name avatarColor');
-      if (!user) return next(new Error('unauthorized'));
+      const user = await User.findById(sub).select('name avatarColor suspended');
+      if (!user || user.suspended) return next(new Error('unauthorized'));
       socket.data.user = { _id: String(user._id), name: user.name, avatarColor: user.avatarColor };
       return next();
     } catch {

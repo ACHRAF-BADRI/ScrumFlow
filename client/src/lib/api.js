@@ -51,7 +51,7 @@ api.interceptors.response.use(
   (error) => {
     settle();
     if (error.response?.status === 401 && tokenStore.get()) {
-      window.dispatchEvent(new Event('sf:unauthorized'));
+      window.dispatchEvent(new CustomEvent('sf:unauthorized', { detail: { code: error.response.data?.code } }));
     }
     return Promise.reject(error);
   }

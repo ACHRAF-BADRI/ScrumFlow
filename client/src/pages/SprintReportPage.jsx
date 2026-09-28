@@ -9,6 +9,7 @@ import { useStatuses } from '../hooks/useStatuses';
 import { formatDate, taskKey } from '../lib/format';
 import { EmptyState, PageLoader } from '../components/ui/Feedback';
 import LogoMark from '../components/ui/LogoMark';
+import BackToTop from '../components/ui/BackToTop';
 
 /*
  * Printable sprint report. Always light, whatever the app theme, so the PDF
@@ -204,6 +205,7 @@ function Report() {
         )}
         <footer className="border-t border-[#e6e9ef] pt-3 text-center text-[11px] text-[#9699a6]">ScrumFlow</footer>
       </article>
+      <BackToTop />
     </div>
   );
 }

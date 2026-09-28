@@ -28,6 +28,8 @@ import PokerView from './pages/views/PokerView';
 import SharedBoardPage from './pages/SharedBoardPage';
 import SprintReportPage from './pages/SprintReportPage';
 import OAuthPage from './pages/OAuthPage';
+import AdminPage from './pages/admin/AdminPage';
+import AdminUserPage from './pages/admin/AdminUserPage';
 
 // Charts are heavy: load them only when the dashboard is opened
 const DashboardView = lazy(() => import('./pages/views/DashboardView'));
@@ -44,6 +46,12 @@ function RequireAuth({ children }) {
       </ProjectsProvider>
     </RealtimeProvider>
   );
+}
+
+/** Admins only; everyone else gets the "page not found" screen. */
+function AdminOnly({ children }) {
+  const { user } = useAuth();
+  return user?.isAdmin ? children : <NotFound />;
 }
 
 function GuestOnly({ children }) {
@@ -97,6 +105,8 @@ export default function App() {
           <Route index element={<ProjectsPage />} />
           <Route path="account" element={<AccountPage />} />
           <Route path="my-work" element={<MyWorkPage />} />
+          <Route path="admin" element={<AdminOnly><AdminPage /></AdminOnly>} />
+          <Route path="admin/users/:userId" element={<AdminOnly><AdminUserPage /></AdminOnly>} />
           <Route path="projects/:projectId" element={<ProjectPage />}>
             <Route index element={<TableView />} />
             <Route path="board" element={<BoardView />} />

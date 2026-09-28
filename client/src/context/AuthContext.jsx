@@ -35,10 +35,11 @@ export function AuthProvider({ children }) {
 
   // Fired by the API client when the token is rejected
   useEffect(() => {
-    const onUnauthorized = () => {
+    const onUnauthorized = (event) => {
       if (!tokenStore.get()) return;
       logout();
-      toast.error(i18n.t('errors.sessionExpired'));
+      const code = event.detail?.code;
+      toast.error(i18n.t(code === 'errors.accountSuspended' ? code : 'errors.sessionExpired'), { id: 'session' });
     };
     window.addEventListener('sf:unauthorized', onUnauthorized);
     return () => window.removeEventListener('sf:unauthorized', onUnauthorized);

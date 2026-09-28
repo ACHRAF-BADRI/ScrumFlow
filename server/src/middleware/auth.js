@@ -35,7 +35,15 @@ export async function requireAuth(req, _res, next) {
 
   const user = await User.findById(payload.sub);
   if (!user) throw unauthorized('User no longer exists', 'errors.sessionExpired');
+  if (user.suspended) throw unauthorized('This account is suspended', 'errors.accountSuspended');
   req.user = user;
+  next();
+}
+
+/** Platform admins only (after requireAuth). Answers 404 so the area stays invisible to others. */
+export function requireAdmin(req, _res, next) {
+  const root = Boolean(config.admin.email) && req.user?.email === config.admin.email;
+  if (!req.user?.isAdmin && !root) throw notFound();
   next();
 }
 

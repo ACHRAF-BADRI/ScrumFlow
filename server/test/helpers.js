@@ -25,6 +25,11 @@ process.env.GITLAB_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.GITLAB_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
 process.env.BITBUCKET_CLIENT_ID = crypto.randomBytes(6).toString('hex');
 process.env.BITBUCKET_CLIENT_SECRET = crypto.randomBytes(12).toString('hex');
+// Main platform admin, generated for each run
+export const ADMIN_EMAIL = `root.${crypto.randomBytes(4).toString('hex')}@test.io`;
+export const ADMIN_PASSWORD = `pw-${crypto.randomUUID()}`;
+process.env.ADMIN_EMAIL = ADMIN_EMAIL;
+process.env.ADMIN_PASSWORD = ADMIN_PASSWORD;
 // Simulated AI provider (fetch is stubbed in ai.test.js), small daily limit to test it
 process.env.AI_PROVIDER = 'groq';
 process.env.GROQ_API_KEY = `test-${crypto.randomBytes(12).toString('hex')}`;

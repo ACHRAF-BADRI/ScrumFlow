@@ -23,12 +23,16 @@ export function RealtimeProvider({ children }) {
       setConnected(false);
       setSocketId(null);
     };
+    // An admin suspended or deleted this account: sign out right away
+    const onSuspended = () => window.dispatchEvent(new CustomEvent('sf:unauthorized', { detail: { code: 'errors.accountSuspended' } }));
     s.on('connect', onConnect);
     s.on('disconnect', onDisconnect);
+    s.on('account:suspended', onSuspended);
     setSocket(s);
     return () => {
       s.off('connect', onConnect);
       s.off('disconnect', onDisconnect);
+      s.off('account:suspended', onSuspended);
       s.disconnect();
       setSocketId(null);
       setSocket(null);
