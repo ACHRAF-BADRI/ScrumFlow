@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import { describe, test } from 'node:test';
-import { config } from '../src/config.js';
-import { isAllowedOrigin } from '../src/utils/cors.js';
+
+// The config needs these to load; CI has no .env file (values generated for each run)
+process.env.MONGODB_URI ??= 'mongodb://placeholder';
+process.env.JWT_SECRET ??= crypto.randomBytes(32).toString('hex');
+const { config } = await import('../src/config.js');
+const { isAllowedOrigin } = await import('../src/utils/cors.js');
 
 describe('allowed front-end origins', () => {
   test('configured sites and their preview deployments, nothing else', () => {
