@@ -1,6 +1,16 @@
 # ScrumFlow
 
-[![CI](https://github.com/ACHRAF-BADRI/React-To-Do-List/actions/workflows/ci.yml/badge.svg)](https://github.com/ACHRAF-BADRI/React-To-Do-List/actions/workflows/ci.yml)
+[![CI](https://github.com/ACHRAF-BADRI/ScrumFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/ACHRAF-BADRI/ScrumFlow/actions/workflows/ci.yml)
+![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-5-646cff?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-3-06b6d4?logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-4-010101?logo=socketdotio&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47a248?logo=mongodb&logoColor=white)
+![Render](https://img.shields.io/badge/API-Render-46e3b7?logo=render&logoColor=white)
+![Cloudflare Pages](https://img.shields.io/badge/Front-Cloudflare%20Pages-f38020?logo=cloudflare&logoColor=white)
+![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue)
 
 ScrumFlow is a workspace for Scrum teams. Plan your sprints, organize the backlog, move tasks across a board, follow progress with burndown and velocity charts, and discuss work directly on each task. It works in **English and French**, in **light and dark** mode, on desktop and mobile.
 
